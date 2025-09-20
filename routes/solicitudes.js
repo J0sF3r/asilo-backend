@@ -1,0 +1,123 @@
+const express = require('express');
+const router = express.Router();
+const db = require('../db');
+// Importamos los nuevos permisos junto con el de admin
+const { adminAuth, generalAuth, foundationAuth, solicitudesViewAuth } = require('../middleware/auth');
+
+// @route   GET api/solicitudes
+// @desc    Obtener todas las solicitudes
+router.get('/', solicitudesViewAuth,  async (req, res) => {
+    try {
+        const solicitudes = await db.query(
+            `SELECT 
+                s.*, 
+                p.nombre as nombre_paciente, 
+                m.nombre as nombre_medico_general,
+                s.motivo 
+             FROM solicitud s
+             JOIN paciente p ON s.id_paciente = p.id_paciente
+             LEFT JOIN medico m ON s.id_medico_general = m.id_medico
+             ORDER BY s.fecha_solicitud DESC`
+        );
+        res.json(solicitudes.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Error en el Servidor');
+    }
+});
+
+// @route   POST api/solicitudes
+// @desc    Crear una nueva solicitud (Acción de Administración)
+router.post('/', adminAuth, async (req, res) => {
+    const { id_paciente, id_medico_general, motivo } = req.body;
+    try {
+        const nuevaSolicitud = await db.query(
+            `INSERT INTO solicitud (id_paciente, id_medico_general, motivo, estado)
+             VALUES ($1, $2, $3, 'pendiente') RETURNING *`,
+            [id_paciente, id_medico_general, motivo]
+        );
+        res.status(201).json(nuevaSolicitud.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Error en el Servidor');
+    }
+});
+
+// @route   PUT api/solicitudes/:id/aprobar
+// @desc    Aprobar una solicitud (Acción de Médico General)
+router.put('/:id/aprobar', generalAuth, async (req, res) => {
+    const { id } = req.params;
+    // Ahora también recibimos el diagnóstico del Médico General
+    const { especialidad_requerida, id_enfermero, diagnostico_general } = req.body; 
+
+    try {
+        const solicitudAprobada = await db.query(
+            `UPDATE solicitud 
+             SET especialidad_requerida = $1, id_enfermero = $2, diagnostico_general = $3, estado = 'aprobada'
+             WHERE id_solicitud = $4 AND estado = 'pendiente' RETURNING *`,
+            [especialidad_requerida, id_enfermero, diagnostico_general, id]
+        );
+
+        if (solicitudAprobada.rows.length === 0) {
+            return res.status(404).json({ msg: 'Solicitud no encontrada o ya no está pendiente.' });
+        }
+        res.json(solicitudAprobada.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Error en el Servidor');
+    }
+});
+// @route   POST api/solicitudes/:id/programar
+// @desc    Programar solicitud aprobada y crear la visita (Acción de Fundación)
+router.post('/:id/programar', foundationAuth, async (req, res) => {
+    const { id } = req.params;
+    // Ahora recibimos también el costo de la consulta
+    const { id_medico_especialista, fecha_visita, lugar, costo_consulta } = req.body; 
+
+    try {
+        // Añadimos el costo_consulta al crear la visita
+        const nuevaVisita = await db.query(
+            `INSERT INTO visita_medica (id_solicitud, fecha_visita, lugar, estado, costo_consulta)
+             VALUES ($1, $2, $3, 'programada', $4) RETURNING *`,
+            [id, fecha_visita, lugar, costo_consulta || 0]
+        );
+
+        // Actualizar la solicitud original
+        await db.query(
+            `UPDATE solicitud SET id_medico_especialista = $1, estado = 'programada'
+             WHERE id_solicitud = $2 AND estado = 'aprobada'`,
+            [id_medico_especialista, id]
+        );
+
+        res.status(201).json(nuevaVisita.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Error en el Servidor');
+    }
+});
+router.get('/:id', solicitudesViewAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const query = `
+            SELECT 
+                s.motivo,
+                p.nombre as nombre_paciente,
+                s.id_paciente
+            FROM solicitud s
+            JOIN paciente p ON s.id_paciente = p.id_paciente
+            WHERE s.id_solicitud = $1;
+        `;
+        const solicitud = await db.query(query, [id]);
+
+        if (solicitud.rows.length === 0) {
+            return res.status(404).json({ msg: 'Solicitud no encontrada' });
+        }
+
+        res.json(solicitud.rows[0]);
+    } catch (err) {
+        console.error("Error al obtener la solicitud:", err.message);
+        res.status(500).send('Error en el Servidor');
+    }
+});
+
+module.exports = router;

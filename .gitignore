@@ -1,0 +1,5 @@
+# Dependencias de Node (son miles de archivos que no se deben subir)
+node_modules
+
+# Archivo de variables de entorno (contiene secretos y contraseñas)
+.env
