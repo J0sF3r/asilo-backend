@@ -22,7 +22,15 @@ router.post('/login', async (req, res) => {
         }
 
         const user = userRes.rows[0];
+                // --- AÑADE ESTOS LOGS PARA DEPURAR ---
+        console.log("--- Verificando Login en Render ---");
+        console.log("Usuario encontrado en BD:", { id: user.id_usuario, username: user.username, rol: user.nombre_rol, id_medico: user.id_medico });
+        console.log("Password recibido del frontend:", password);
+        console.log("Hash guardado en la BD:", user.password_hash);
+
         const isMatch = await bcrypt.compare(password, user.password_hash);
+        console.log("Resultado de bcrypt.compare (isMatch):", isMatch); // <-- Log del resultado
+
 
         if (!isMatch) {
             return res.status(400).json({ msg: 'Credenciales inválidas' });
