@@ -14,15 +14,13 @@ module.exports = {
     query: (text, params) => pool.query(text, params),
 };*/
 
-// backend/db.js render
-// backend/db.js
-// backend/db.js
-// backend/db.js
-const { Pool } = require('pg');
-require('dotenv').config(); // Esta línea es inofensiva en producción
 
-// Esta es la única configuración que necesitamos
+const { Pool } = require('pg');
+        
 const pool = new Pool({
+    // Siempre usará la variable de entorno que le corresponda.
+    // En local, dotenv la cargará del archivo .env (desde index.js).
+    // En Render, el servidor la inyectará.
     connectionString: process.env.DATABASE_URL,
 });
 
