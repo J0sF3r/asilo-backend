@@ -8,11 +8,17 @@ router.get('/', adminAuth, async (req, res) => {
     try {
         const query = `
             SELECT
-                u.id_usuario,
+                u.id_usuario, -- ESTA LÍNEA ES LA MÁS IMPORTANTE
                 u.username,
+                u.email,
                 u.estado,
+                u.id_rol,
+                u.id_medico,
+                u.id_enfermero,
+                u.id_familiar,
+                u.nombre_completo,
                 r.nombre_rol,
-                COALESCE(m.nombre, en.nombre, f.nombre, u.nombre_completo, 'N/A') AS nombre_real
+                COALESCE(m.nombre, en.nombre, f.nombre, u.nombre_completo) AS nombre_real
             FROM usuario u
             JOIN rol r ON u.id_rol = r.id_rol
             LEFT JOIN medico m ON u.id_medico = m.id_medico
