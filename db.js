@@ -13,15 +13,12 @@ const pool = new Pool({
 module.exports = {
     query: (text, params) => pool.query(text, params),
 };*/
-
-  
 const pool = new Pool({
     connectionString: connectionString,
     ssl: process.env.NODE_ENV === 'production' 
         ? { rejectUnauthorized: false } // Para Supabase
         : false
 });
-
 module.exports = {
     query: (text, params) => pool.query(text, params),
 };
