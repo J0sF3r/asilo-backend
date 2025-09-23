@@ -29,7 +29,10 @@ const connectionString = isProduction
 const pool = new Pool({
     connectionString: connectionString,
     // En producción (Render/Supabase), SSL es requerido.
-    ssl: isProduction ? { rejectUnauthorized: false } : false
+    ssl: isProduction ? { rejectUnauthorized: false } : false,
+
+        // nombre de dominio a una dirección IP de la familia IPv4.
+    family: 4,
 });
 
 module.exports = {
