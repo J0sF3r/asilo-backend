@@ -14,14 +14,12 @@ module.exports = {
     query: (text, params) => pool.query(text, params),
 };*/
 
-
-const { Pool } = require('pg');
-        
+  
 const pool = new Pool({
-    // Siempre usará la variable de entorno que le corresponda.
-    // En local, dotenv la cargará del archivo .env (desde index.js).
-    // En Render, el servidor la inyectará.
-    connectionString: process.env.DATABASE_URL,
+    connectionString: connectionString,
+    ssl: process.env.NODE_ENV === 'production' 
+        ? { rejectUnauthorized: false } // Para Supabase
+        : false
 });
 
 module.exports = {
