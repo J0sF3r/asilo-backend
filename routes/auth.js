@@ -7,7 +7,7 @@ const db = require('../db');
 
 // @desc    Autenticar usuario y obtener token (CÓDIGO RESTAURADO)
 router.post('/login', async (req, res) => {
-    const { username, password } = req.body; 
+    const { username, password } = req.body;
     try {
         const userRes = await db.query(
             `SELECT u.*, r.nombre_rol 
@@ -22,7 +22,7 @@ router.post('/login', async (req, res) => {
         }
 
         const user = userRes.rows[0];
-                // --- AÑADE ESTOS LOGS PARA DEPURAR ---
+        // --- AÑADE ESTOS LOGS PARA DEPURAR ---
         console.log("--- Verificando Login en Render ---");
         console.log("Usuario encontrado en BD:", { id: user.id_usuario, username: user.username, rol: user.nombre_rol, id_medico: user.id_medico });
         console.log("Password recibido del frontend:", password);
@@ -52,11 +52,13 @@ router.post('/login', async (req, res) => {
             { expiresIn: '5h' },
             (err, token) => {
                 if (err) throw err;
-                res.json({ token, rol: user.nombre_rol }); 
+                res.json({ token, rol: user.nombre_rol });
             }
         );
     } catch (err) {
-        console.error("Error en la ruta de login:", err.message);
+        console.error("--- ERROR DETALLADO EN RUTA DE LOGIN ---");
+        console.error(err); // Imprimimos el objeto de error completo
+        console.error("--------------------------------------");
         res.status(500).send('Error en el Servidor');
     }
 });
@@ -64,15 +66,15 @@ router.post('/login', async (req, res) => {
 // En backend/routes/auth.js
 
 router.post('/register', async (req, res) => {
-    const { 
-        username, 
-        nombre_completo, 
-        email, 
-        password, 
-        id_rol, 
-        id_medico, 
-        id_enfermero, 
-        id_familiar 
+    const {
+        username,
+        nombre_completo,
+        email,
+        password,
+        id_rol,
+        id_medico,
+        id_enfermero,
+        id_familiar
     } = req.body;
 
     if (!username || !password || !id_rol || !nombre_completo) {
@@ -93,18 +95,18 @@ router.post('/register', async (req, res) => {
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'activo')
             RETURNING id_usuario;
         `;
-        
+
         await db.query(newUserQuery, [
-            username,           
-            nombre_completo,    
-            email || null,      
-            password_hash,      
-            id_rol,             
-            id_medico || null,  
-            id_enfermero || null, 
-            id_familiar || null 
+            username,
+            nombre_completo,
+            email || null,
+            password_hash,
+            id_rol,
+            id_medico || null,
+            id_enfermero || null,
+            id_familiar || null
         ]);
-        
+
         res.status(201).json({ msg: 'Usuario registrado exitosamente' });
 
     } catch (err) {
