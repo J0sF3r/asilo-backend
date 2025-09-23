@@ -13,12 +13,21 @@ const pool = new Pool({
 module.exports = {
     query: (text, params) => pool.query(text, params),
 };*/
+// backend/db.js
+const { Pool } = require('pg');
+
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
+
+const isProduction = process.env.NODE_ENV === 'production';
+
 const pool = new Pool({
-    connectionString: connectionString,
-    ssl: process.env.NODE_ENV === 'production' 
-        ? { rejectUnauthorized: false } // Para Supabase
-        : false
+    connectionString: process.env.DATABASE_URL,
+
+    ssl: isProduction ? { rejectUnauthorized: false } : false
 });
+
 module.exports = {
     query: (text, params) => pool.query(text, params),
 };
