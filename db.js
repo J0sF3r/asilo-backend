@@ -14,18 +14,13 @@ module.exports = {
     query: (text, params) => pool.query(text, params),
 };*/
 // backend/db.js
+// backend/db.js
 const { Pool } = require('pg');
 
-if (process.env.NODE_ENV !== 'production') {
-    require('dotenv').config();
-}
-
-const isProduction = process.env.NODE_ENV === 'production';
-
+// Esta versión es la más simple. Confía 100% en la cadena
+// de conexión que le proporcionará el entorno (Render o tu .env local).
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-
-    ssl: isProduction ? { rejectUnauthorized: false } : false
+    connectionString: process.env.DATABASE_URL, 
 });
 
 module.exports = {
