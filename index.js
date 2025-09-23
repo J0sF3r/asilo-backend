@@ -1,6 +1,8 @@
 // backend/index.js
 
-require('dotenv').config(); // <-- ESTA LÍNEA DEBE ESTAR AL PRINCIPIO DE TODO
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
 
 const express = require('express');
 const cors = require('cors');
