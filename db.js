@@ -15,25 +15,35 @@ module.exports = {
 };*/
 
 // backend/db.js render
+// backend/db.js
 const { Pool } = require('pg');
-//require('dotenv').config();
 
-// Render establece esta variable a 'production' automáticamente.
+// Solo carga dotenv si NO estamos en producción
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
+
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Usamos la DATABASE_URL de Render si estamos en producción, si no, usamos las variables locales.
-const connectionString = isProduction 
-    ? process.env.DATABASE_URL  
-    : `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_DATABASE}`;
+// Objeto de configuración que cambiará según el entorno
+const connectionConfig = isProduction
+    ? { // Configuración para Render usando las variables separadas
+        host: process.env.DB_HOST,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_DATABASE,
+        port: process.env.DB_PORT,
+        ssl: { rejectUnauthorized: false }
+      }
+    : { // Configuración para tu máquina Local
+        host: process.env.DB_HOST,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_DATABASE,
+        port: process.env.DB_PORT
+      };
 
-const pool = new Pool({
-    connectionString: connectionString,
-    // En producción (Render/Supabase), SSL es requerido.
-    ssl: isProduction ? { rejectUnauthorized: false } : false,
-
-        // nombre de dominio a una dirección IP de la familia IPv4.
-    family: 4,
-});
+const pool = new Pool(connectionConfig);
 
 module.exports = {
     query: (text, params) => pool.query(text, params),
