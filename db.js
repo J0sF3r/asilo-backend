@@ -17,20 +17,13 @@ module.exports = {
 // backend/db.js render
 // backend/db.js
 // backend/db.js
+// backend/db.js
 const { Pool } = require('pg');
+require('dotenv').config(); // Esta línea es inofensiva en producción
 
-// Solo carga dotenv si NO estamos en producción
-if (process.env.NODE_ENV !== 'production') {
-    require('dotenv').config();
-}
-
-const connectionString = process.env.NODE_ENV === 'production'
-    ? process.env.DATABASE_URL
-    : `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_DATABASE}`;
-
-// El objeto de configuración ahora es mucho más simple
+// Esta es la única configuración que necesitamos
 const pool = new Pool({
-    connectionString: connectionString,
+    connectionString: process.env.DATABASE_URL,
 });
 
 module.exports = {

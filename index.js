@@ -3,7 +3,7 @@
 if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config();
 }
-
+console.log("--- VARIABLES DE ENTORNO DISPONIBLES ---", process.env);
 const express = require('express');
 const cors = require('cors');
 
