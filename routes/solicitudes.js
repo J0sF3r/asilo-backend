@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 // Importamos los nuevos permisos junto con el de admin
 const { adminAuth, generalAuth, foundationAuth, solicitudesViewAuth } = require('../middleware/auth');
+const { enviarCorreoNotificacion } = require('../utils/emailService');
 
 // @route   GET api/solicitudes
 // @desc    Obtener todas las solicitudes
