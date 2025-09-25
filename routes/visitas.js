@@ -65,9 +65,12 @@ router.get('/', foundationAuth, async (req, res) => {
 // En backend/routes/visitas.js
 router.get('/mis-citas', medicoAuth, async (req, res) => {
     try {
-        const { estado } = req.query; // Leemos el filtro desde la URL (ej: /mis-citas?estado=programada)
-        const idMedicoLogueado = req.user.id;
-
+        const { estado } = req.query; 
+        const idMedicoLogueado = req.user.id_medico;
+        
+        if (!idMedicoLogueado) {
+            return res.json([]);
+        }
         let queryParams = [idMedicoLogueado];
         let query = `
             SELECT 
