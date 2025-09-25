@@ -89,6 +89,30 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
             [id_medico_especialista, id]
         );
 
+        // --- 2. LÓGICA DE ENVÍO DE CORREO ---
+        // Buscamos los datos necesarios para la notificación
+        const datosParaCorreo = await db.query(
+            `SELECT 
+                fam.email, 
+                pac.nombre AS nombre_paciente, 
+                med.nombre AS nombre_medico 
+             FROM solicitud s
+             JOIN paciente pac ON s.id_paciente = pac.id_paciente
+             LEFT JOIN paciente_familiar pf ON pac.id_paciente = pf.id_paciente
+             LEFT JOIN familiar fam ON pf.id_familiar = fam.id_familiar
+             WHERE s.id_solicitud = $1 AND fam.email IS NOT NULL
+             LIMIT 1`,
+            [id_solicitud]
+        );
+
+        // Si encontramos un familiar con email, enviamos la notificación
+        if (datosParaCorreo.rows.length > 0) {
+            const { email, nombre_paciente, nombre_medico } = datosParaCorreo.rows[0];
+            // Usamos nuestra nueva función del emailService
+            await enviarCorreoNotificacion(email, nombre_paciente, nombre_medico, fecha_visita, lugar);
+        }
+        // ------------------------------------
+
         res.status(201).json(nuevaVisita.rows[0]);
     } catch (err) {
         console.error(err.message);

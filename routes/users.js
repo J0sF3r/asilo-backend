@@ -8,7 +8,7 @@ router.get('/', adminAuth, async (req, res) => {
     try {
         const query = `
             SELECT
-                u.id_usuario, -- ESTA LÍNEA ES LA MÁS IMPORTANTE
+                u.id_usuario,
                 u.username,
                 u.email,
                 u.estado,
