@@ -69,56 +69,61 @@ router.put('/:id/aprobar', generalAuth, async (req, res) => {
     }
 });
 
-
-// @route   POST api/solicitudes/:id/programar
-// @desc    Programar solicitud aprobada y crear la visita (Acción de Fundación)
 router.post('/:id/programar', foundationAuth, async (req, res) => {
-    // Estandarizamos el nombre de la variable aquí
     const { id: id_solicitud } = req.params;
     const { id_medico_especialista, fecha_visita, lugar, costo_consulta } = req.body;
 
     try {
-        // 1. Creamos la nueva visita usando 'id_solicitud'
+        // --- 1. OPERACIONES DE BASE DE DATOS (QUEDAN IGUAL) ---
         const nuevaVisita = await db.query(
             `INSERT INTO visita_medica (id_solicitud, fecha_visita, lugar, estado, costo_consulta)
              VALUES ($1, $2, $3, 'programada', $4) RETURNING *`,
             [id_solicitud, fecha_visita, lugar, costo_consulta || 0]
         );
-
-        // 2. Actualizamos la solicitud usando 'id_solicitud'
         await db.query(
             `UPDATE solicitud SET id_medico_especialista = $1, estado = 'programada'
              WHERE id_solicitud = $2 AND estado = 'aprobada'`,
             [id_medico_especialista, id_solicitud]
         );
 
-        // 3. Obtenemos datos para el correo usando 'id_solicitud'
-        const datosParaCorreo = await db.query(
-            `SELECT 
+        // --- 2. LÓGICA DE CORREO MEJORADA ---
+        const datosParaCorreoQuery = `
+            SELECT 
                 fam.email, 
-                pac.nombre AS nombre_paciente, 
-                med.nombre AS nombre_medico 
+                pac.nombre AS "nombrePaciente", 
+                med_esp.nombre AS "nombreMedicoEspecialista",
+                med_esp.especialidad AS "especialidadMedico",
+                s.motivo AS "motivoVisita",
+                med_gen.nombre AS "nombreMedicoGeneral",
+                enf.nombre as "nombreEnfermero",
+                enf.telefono as "telefonoEnfermero"
              FROM solicitud s
              JOIN paciente pac ON s.id_paciente = pac.id_paciente
              LEFT JOIN paciente_familiar pf ON pac.id_paciente = pf.id_paciente
              LEFT JOIN familiar fam ON pf.id_familiar = fam.id_familiar
-             LEFT JOIN medico med ON s.id_medico_especialista = med.id_medico
-             WHERE s.id_solicitud = $1 AND fam.email IS NOT NULL LIMIT 1`,
-            [id_solicitud]
-        );
+             LEFT JOIN medico med_esp ON s.id_medico_especialista = med_esp.id_medico
+             LEFT JOIN medico med_gen ON s.id_medico_general = med_gen.id_medico
+             LEFT JOIN enfermero enf ON s.id_enfermero = enf.id_enfermero
+             WHERE s.id_solicitud = $1 AND fam.email IS NOT NULL
+             LIMIT 1
+        `;
+        const datosParaCorreoResult = await db.query(datosParaCorreoQuery, [id_solicitud]);
 
-        if (datosParaCorreo.rows.length > 0) {
-            const { email, nombre_paciente, nombre_medico } = datosParaCorreo.rows[0];
-            await enviarCorreoNotificacion(email, nombre_paciente, nombre_medico, fecha_visita, lugar);
+        if (datosParaCorreoResult.rows.length > 0) {
+            const { email, ...datosCita } = datosParaCorreoResult.rows[0];
+            datosCita.fechaVisita = fecha_visita;
+            datosCita.lugar = lugar;
+            await enviarCorreoNotificacion(email, datosCita);
         }
-
+        
         res.status(201).json(nuevaVisita.rows[0]);
-
     } catch (err) {
         console.error("Error al programar la solicitud:", err.message);
         res.status(500).send('Error en el Servidor');
     }
 });
+
+
 router.get('/:id', solicitudesViewAuth, async (req, res) => {
     try {
         const { id } = req.params;
