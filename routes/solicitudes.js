@@ -67,30 +67,31 @@ router.put('/:id/aprobar', generalAuth, async (req, res) => {
         res.status(500).send('Error en el Servidor');
     }
 });
+
+
 // @route   POST api/solicitudes/:id/programar
 // @desc    Programar solicitud aprobada y crear la visita (Acción de Fundación)
 router.post('/:id/programar', foundationAuth, async (req, res) => {
+    // Estandarizamos el nombre de la variable aquí
     const { id: id_solicitud } = req.params;
-    // Ahora recibimos también el costo de la consulta
-    const { id_medico_especialista, fecha_visita, lugar, costo_consulta } = req.body; 
+    const { id_medico_especialista, fecha_visita, lugar, costo_consulta } = req.body;
 
     try {
-        // Añadimos el costo_consulta al crear la visita
+        // 1. Creamos la nueva visita usando 'id_solicitud'
         const nuevaVisita = await db.query(
             `INSERT INTO visita_medica (id_solicitud, fecha_visita, lugar, estado, costo_consulta)
              VALUES ($1, $2, $3, 'programada', $4) RETURNING *`,
-            [id, fecha_visita, lugar, costo_consulta || 0]
+            [id_solicitud, fecha_visita, lugar, costo_consulta || 0]
         );
 
-        // Actualizar la solicitud original
+        // 2. Actualizamos la solicitud usando 'id_solicitud'
         await db.query(
             `UPDATE solicitud SET id_medico_especialista = $1, estado = 'programada'
              WHERE id_solicitud = $2 AND estado = 'aprobada'`,
             [id_medico_especialista, id_solicitud]
         );
 
-        // --- 2. LÓGICA DE ENVÍO DE CORREO ---
-        // Buscamos los datos necesarios para la notificación
+        // 3. Obtenemos datos para el correo usando 'id_solicitud'
         const datosParaCorreo = await db.query(
             `SELECT 
                 fam.email, 
@@ -100,22 +101,20 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
              JOIN paciente pac ON s.id_paciente = pac.id_paciente
              LEFT JOIN paciente_familiar pf ON pac.id_paciente = pf.id_paciente
              LEFT JOIN familiar fam ON pf.id_familiar = fam.id_familiar
-             WHERE s.id_solicitud = $1 AND fam.email IS NOT NULL
-             LIMIT 1`,
+             LEFT JOIN medico med ON s.id_medico_especialista = med.id_medico
+             WHERE s.id_solicitud = $1 AND fam.email IS NOT NULL LIMIT 1`,
             [id_solicitud]
         );
 
-        // Si encontramos un familiar con email, enviamos la notificación
         if (datosParaCorreo.rows.length > 0) {
             const { email, nombre_paciente, nombre_medico } = datosParaCorreo.rows[0];
-            // Usamos nuestra nueva función del emailService
             await enviarCorreoNotificacion(email, nombre_paciente, nombre_medico, fecha_visita, lugar);
         }
-        // ------------------------------------
 
         res.status(201).json(nuevaVisita.rows[0]);
+
     } catch (err) {
-        console.error(err.message);
+        console.error("Error al programar la solicitud:", err.message);
         res.status(500).send('Error en el Servidor');
     }
 });
