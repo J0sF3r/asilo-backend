@@ -86,7 +86,7 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
         await db.query(
             `UPDATE solicitud SET id_medico_especialista = $1, estado = 'programada'
              WHERE id_solicitud = $2 AND estado = 'aprobada'`,
-            [id_medico_especialista, id]
+            [id_medico_especialista, id_solicitud]
         );
 
         // --- 2. LÓGICA DE ENVÍO DE CORREO ---
