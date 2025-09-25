@@ -70,7 +70,7 @@ router.put('/:id/aprobar', generalAuth, async (req, res) => {
 // @route   POST api/solicitudes/:id/programar
 // @desc    Programar solicitud aprobada y crear la visita (Acción de Fundación)
 router.post('/:id/programar', foundationAuth, async (req, res) => {
-    const { id } = req.params;
+    const { id: id_solicitud } = req.params;
     // Ahora recibimos también el costo de la consulta
     const { id_medico_especialista, fecha_visita, lugar, costo_consulta } = req.body; 
 
