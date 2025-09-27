@@ -51,7 +51,8 @@ router.post('/:id/familiares', adminAuth, async (req, res) => {
 // @access  Private (Admin)
 router.get('/', adminAuth, async (req, res) => {
     try {
-        const pacientes = await db.query('SELECT * FROM Paciente ORDER BY nombre ASC');
+        // <-- CAMBIO: Se añade "WHERE activo = TRUE" para obtener solo los pacientes activos.
+        const pacientes = await db.query('SELECT * FROM Paciente WHERE activo = TRUE ORDER BY nombre ASC');
         res.json(pacientes.rows);
     } catch (err) {
         console.error(err.message);
@@ -62,7 +63,8 @@ router.get('/', adminAuth, async (req, res) => {
 router.get('/:id', adminAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        const paciente = await db.query('SELECT * FROM Paciente WHERE id_paciente = $1', [id]);
+        // <-- CAMBIO: Se añade "AND activo = TRUE" para no encontrar pacientes inactivos.
+        const paciente = await db.query('SELECT * FROM Paciente WHERE id_paciente = $1 AND activo = TRUE', [id]);
 
         if (paciente.rows.length === 0) {
             return res.status(404).json({ msg: 'Paciente no encontrado' });
@@ -73,6 +75,8 @@ router.get('/:id', adminAuth, async (req, res) => {
         res.status(500).send('Error en el Servidor');
     }
 });
+
+
 router.get('/:id/familiares', adminAuth, async (req, res) => {
     try {
         const { id } = req.params;
@@ -237,18 +241,18 @@ router.put('/:id', adminAuth, async (req, res) => {
 // @route   DELETE api/pacientes/:id
 router.delete('/:id', adminAuth, async (req, res) => {
     const { id } = req.params;
-
     try {
-        const deletePaciente = await db.query(
-            'DELETE FROM Paciente WHERE id_paciente = $1 RETURNING *',
+        // <-- CAMBIO: En lugar de DELETE, ahora hacemos un UPDATE para poner activo = FALSE.
+        const deactivatePaciente = await db.query(
+            'UPDATE Paciente SET activo = FALSE WHERE id_paciente = $1 RETURNING *',
             [id]
         );
 
-        if (deletePaciente.rowCount === 0) {
+        if (deactivatePaciente.rowCount === 0) {
             return res.status(404).json({ msg: 'Paciente no encontrado' });
         }
 
-        res.json({ msg: 'Paciente eliminado exitosamente' });
+        res.json({ msg: 'Paciente desactivado exitosamente' }); // Mensaje actualizado
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Error en el Servidor');
