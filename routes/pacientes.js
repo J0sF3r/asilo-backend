@@ -22,7 +22,7 @@ router.post('/', adminAuth, async (req, res) => {
     }
 });
 
-router.post('/:id/familiares', adminAuth, async (req, res) => {
+router.post('/:id/familiares', generalAuth, async (req, res) => {
     try {
         const { id: id_paciente } = req.params;
         const { id_familiar } = req.body; // Recibiremos el ID del familiar a asignar
@@ -76,7 +76,7 @@ router.get('/:id', adminAuth, async (req, res) => {
 });
 
 
-router.get('/:id/familiares', adminAuth, async (req, res) => {
+router.get('/:id/familiares', generalAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const familiares = await db.query(
@@ -94,7 +94,7 @@ router.get('/:id/familiares', adminAuth, async (req, res) => {
 });
 
 // Get historial de solicitudes de un paciente
-router.get('/:id/solicitudes', adminAuth, async (req, res) => {
+router.get('/:id/solicitudes', generalAuth, async (req, res) => {
     const { id } = req.params;
     try {
         // Obtener todas las solicitudes del paciente
