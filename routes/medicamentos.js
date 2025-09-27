@@ -2,11 +2,11 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { adminAuth, generalAuth, generalViewAuth } = require('../middleware/auth');
+const { generalViewAuth, foundationAuth } = require('../middleware/auth');
 
 
 // Crear un nuevo medicamento
-router.post('/', adminAuth, async (req, res) => {
+router.post('/', foundationAuth, async (req, res) => {
     const { nombre, descripcion, costo } = req.body;
     if (!nombre || !costo) {
         return res.status(400).json({ msg: 'El nombre y el costo del medicamento son requeridos.' });
@@ -37,7 +37,7 @@ router.get('/', generalViewAuth, async (req, res) => {
 
 
 // Actualizar un medicamento
-router.put('/:id', adminAuth, async (req, res) => {
+router.put('/:id', foundationAuth, async (req, res) => {
     const { id } = req.params;
     const { nombre, descripcion, costo } = req.body;
     if (!nombre || !costo) {
@@ -60,7 +60,7 @@ router.put('/:id', adminAuth, async (req, res) => {
 
 
 // Eliminar un medicamento
-router.delete('/:id', adminAuth, async (req, res) => {
+router.delete('/:id', foundationAuth, async (req, res) => {
     const { id } = req.params;
     try {
         const deleteOp = await db.query("DELETE FROM medicamento WHERE id_medicamento = $1", [id]);

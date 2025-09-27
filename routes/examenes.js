@@ -2,11 +2,11 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { adminAuth, generalViewAuth,} = require('../middleware/auth');
+const { adminAuth, generalViewAuth, foundationAuth} = require('../middleware/auth');
 
 // @route   POST api/examenes
 // @desc    Crear un nuevo examen
-router.post('/', adminAuth, async (req, res) => {
+router.post('/', foundationAuth, async (req, res) => {
     const { nombre_examen, descripcion, costo } = req.body;
     if (!nombre_examen || !costo) {
         return res.status(400).json({ msg: 'El nombre y el costo del examen son requeridos.' });
@@ -37,7 +37,7 @@ router.get('/', generalViewAuth, async (req, res) => {
 
 // @route   PUT api/examenes/:id
 // @desc    Actualizar un examen
-router.put('/:id', adminAuth, async (req, res) => {
+router.put('/:id', foundationAuth, async (req, res) => {
     const { id } = req.params;
     const { nombre_examen, descripcion, costo } = req.body;
     if (!nombre_examen || !costo) {
@@ -60,7 +60,7 @@ router.put('/:id', adminAuth, async (req, res) => {
 
 // @route   DELETE api/examenes/:id
 // @desc    Eliminar un examen
-router.delete('/:id', adminAuth, async (req, res) => {
+router.delete('/:id', foundationAuth, async (req, res) => {
     const { id } = req.params;
     try {
         const deleteOp = await db.query("DELETE FROM examen WHERE id_examen = $1", [id]);

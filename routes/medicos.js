@@ -2,11 +2,11 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { adminAuth, solicitudesViewAuth } = require('../middleware/auth');
+const { adminAuth, solicitudesViewAuth, foundationAuth } = require('../middleware/auth');
 
 // @route   POST api/medicos
 // @desc    Registrar un nuevo médico
-router.post('/', adminAuth, async (req, res) => {
+router.post('/', foundationAuth, async (req, res) => {
     // Recibimos el nuevo campo 'tipo'
     const { nombre, tipo, especialidad, email, telefono } = req.body;
     try {
