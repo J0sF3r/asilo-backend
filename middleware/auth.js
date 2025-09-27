@@ -107,6 +107,21 @@ const generalViewAuth = (req, res, next) => {
     });
 };
 
+const diagnosticoAuth = (req, res, next) => {
+    auth(req, res, () => {
+        const allowedRoles = [
+            'Administración', 
+            'Medico General', 
+            'Medico Especialista'
+        ];
+        if (allowedRoles.includes(req.user.nombre_rol)) {
+            next(); // El usuario tiene uno de los roles permitidos
+        } else {
+            res.status(403).json({ msg: 'Acceso denegado. Se requiere rol de Administrador o Médico.' });
+        }
+    });
+};
+
 module.exports = { auth, adminAuth, labAuth, farmaciaAuth, 
     generalAuth, foundationAuth, solicitudesViewAuth, 
-    medicoAuth, generalViewAuth };
+    medicoAuth, generalViewAuth, diagnosticoAuth };

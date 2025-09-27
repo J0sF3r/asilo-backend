@@ -2,8 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { adminAuth } = require('../middleware/auth'); // Usaremos adminAuth para proteger las rutas
-const { medicoAuth } = require('../middleware/auth'); // Middleware de autenticación para médicos
+const { adminAuth, medicoAuth, diagnosticoAuth } = require('../middleware/auth'); // Usaremos adminAuth para proteger las rutas
 
 // @route   POST api/pacientes
 // @desc    Registrar un nuevo paciente
@@ -259,4 +258,52 @@ router.delete('/:id', adminAuth, async (req, res) => {
     }
 });
 
+// @route   GET api/pacientes/:id/condiciones
+// @desc    Obtener todas las condiciones de base de un paciente
+// @access  Private (Admin/Medico)
+router.get('/:id/condiciones', adminAuth, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const condicionesRes = await db.query(
+            'SELECT * FROM Condicion_Base WHERE id_paciente = $1 ORDER BY fecha_diagnostico DESC',
+            [id]
+        );
+        const condiciones = condicionesRes.rows;
+
+        // Para cada condición, buscar sus tratamientos fijos
+        for (const condicion of condiciones) {
+            const tratamientosRes = await db.query(
+                'SELECT * FROM Tratamiento_Fijo WHERE id_condicion = $1 ORDER BY fecha_inicio ASC',
+                [condicion.id_condicion]
+            );
+            // Añadimos un array de tratamientos a cada objeto de condición
+            condicion.tratamientos = tratamientosRes.rows;
+        }
+
+        res.json(condiciones);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Error en el Servidor');
+    }
+});
+
+// @route   POST api/pacientes/:id/condiciones
+// @desc    Añadir una nueva condición de base a un paciente
+// @access  Private (Admin)
+router.post('/:id/condiciones', diagnosticoAuth, async (req, res) => {
+    const { id: id_paciente } = req.params;
+    const { nombre_condicion, fecha_diagnostico, observaciones } = req.body;
+
+    try {
+        const nuevaCondicion = await db.query(
+            `INSERT INTO Condicion_Base (id_paciente, nombre_condicion, fecha_diagnostico, observaciones)
+             VALUES ($1, $2, $3, $4) RETURNING *`,
+            [id_paciente, nombre_condicion, fecha_diagnostico, observaciones]
+        );
+        res.status(201).json(nuevaCondicion.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Error en el Servidor');
+    }
+});
 module.exports = router;

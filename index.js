@@ -29,6 +29,8 @@ app.use('/api/medicamentos', require('./routes/medicamentos'));
 app.use('/api', require('./routes/examenVisita'));
 app.use('/api', require('./routes/medicamentoVisita'));
 app.use('/api/farmacia', require('./routes/farmacia'));
+app.use('/api/tratamientos', require('./routes/tratamientos'));
+app.use('/api/condiciones', require('./routes/condiciones'));
 
 const PORT = process.env.PORT || 5000;
 
