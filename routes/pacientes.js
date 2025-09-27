@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { adminAuth, medicoAuth, diagnosticoAuth } = require('../middleware/auth'); // Usaremos adminAuth para proteger las rutas
+const { adminAuth, medicoAuth, diagnosticoAuth, generalAuth } = require('../middleware/auth'); // Usaremos adminAuth para proteger las rutas
 
 // @route   POST api/pacientes
 // @desc    Registrar un nuevo paciente
@@ -48,7 +48,7 @@ router.post('/:id/familiares', adminAuth, async (req, res) => {
 // @route   GET api/pacientes
 // @desc    Obtener todos los pacientes
 // @access  Private (Admin)
-router.get('/', adminAuth, async (req, res) => {
+router.get('/', generalAuth, async (req, res) => {
     try {
         // <-- CAMBIO: Se añade "WHERE activo = TRUE" para obtener solo los pacientes activos.
         const pacientes = await db.query('SELECT * FROM Paciente WHERE activo = TRUE ORDER BY nombre ASC');
