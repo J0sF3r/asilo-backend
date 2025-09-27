@@ -208,4 +208,51 @@ router.get('/:id/historial', medicoAuth, async (req, res) => {
         res.status(500).send('Error en el Servidor');
     }
 });
+
+// @desc    Actualizar un paciente existente
+
+router.put('/:id', adminAuth, async (req, res) => {
+    const { id } = req.params;
+    const { nombre, fecha_nacimiento, sexo, direccion, telefono, email } = req.body;
+
+    try {
+        const updatePaciente = await db.query(
+            `UPDATE Paciente 
+             SET nombre = $1, fecha_nacimiento = $2, sexo = $3, direccion = $4, telefono = $5, email = $6
+             WHERE id_paciente = $7 RETURNING *`,
+            [nombre, fecha_nacimiento, sexo, direccion, telefono, email, id]
+        );
+
+        if (updatePaciente.rowCount === 0) {
+            return res.status(404).json({ msg: 'Paciente no encontrado' });
+        }
+
+        res.json(updatePaciente.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Error en el Servidor');
+    }
+});
+
+// @route   DELETE api/pacientes/:id
+router.delete('/:id', adminAuth, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const deletePaciente = await db.query(
+            'DELETE FROM Paciente WHERE id_paciente = $1 RETURNING *',
+            [id]
+        );
+
+        if (deletePaciente.rowCount === 0) {
+            return res.status(404).json({ msg: 'Paciente no encontrado' });
+        }
+
+        res.json({ msg: 'Paciente eliminado exitosamente' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Error en el Servidor');
+    }
+});
+
 module.exports = router;
