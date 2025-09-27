@@ -59,7 +59,7 @@ router.get('/', generalAuth, async (req, res) => {
     }
 });
 
-router.get('/:id', adminAuth, async (req, res) => {
+router.get('/:id', generalAuth, async (req, res) => {
     try {
         const { id } = req.params;
         // <-- CAMBIO: Se añade "AND activo = TRUE" para no encontrar pacientes inactivos.
@@ -261,7 +261,7 @@ router.delete('/:id', adminAuth, async (req, res) => {
 // @route   GET api/pacientes/:id/condiciones
 // @desc    Obtener todas las condiciones de base de un paciente
 // @access  Private (Admin/Medico)
-router.get('/:id/condiciones', adminAuth, async (req, res) => {
+router.get('/:id/condiciones', generalAuth, async (req, res) => {
     const { id } = req.params;
     try {
         const condicionesRes = await db.query(
