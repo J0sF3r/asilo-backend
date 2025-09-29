@@ -1,8 +1,7 @@
-// backend/routes/enfermeros.js
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { adminAuth, generalAuth, solicitudesViewAuth } = require('../middleware/auth');
+const { adminAuth, solicitudesViewAuth } = require('../middleware/auth');
 
 // @route   POST api/enfermeros
 // @desc    Registrar un nuevo enfermero/a
@@ -22,10 +21,10 @@ router.post('/', adminAuth, async (req, res) => {
 });
 
 // @route   GET api/enfermeros
-// @desc    Obtener todos los enfermeros/as
+// @desc    Obtener todos los enfermeros/as ACTIVOS
 router.get('/', solicitudesViewAuth, async (req, res) => {
     try {
-        const enfermeros = await db.query('SELECT * FROM Enfermero ORDER BY nombre ASC');
+        const enfermeros = await db.query('SELECT * FROM Enfermero WHERE activo = TRUE ORDER BY nombre ASC');
         res.json(enfermeros.rows);
     } catch (err) {
         console.error(err.message);
@@ -33,10 +32,42 @@ router.get('/', solicitudesViewAuth, async (req, res) => {
     }
 });
 
-router.get('/', adminAuth, async (req, res) => {
+// @route   PUT api/enfermeros/:id
+// @desc    Actualizar un enfermero/a
+// --- NUEVA RUTA ---
+router.put('/:id', adminAuth, async (req, res) => {
+    const { id } = req.params;
+    const { nombre, telefono, email } = req.body;
     try {
-        const medicos = await db.query("SELECT id_enfermero, nombre FROM enfermero ORDER BY nombre ASC");
-    res.json(enfermeros.rows);
+        const updatedEnfermero = await db.query(
+            `UPDATE Enfermero SET nombre = $1, telefono = $2, email = $3 
+             WHERE id_enfermero = $4 RETURNING *`,
+            [nombre, telefono, email, id]
+        );
+        if (updatedEnfermero.rowCount === 0) {
+            return res.status(404).json({ msg: 'Enfermero/a no encontrado/a' });
+        }
+        res.json(updatedEnfermero.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Error en el Servidor');
+    }
+});
+
+// @route   DELETE api/enfermeros/:id
+// @desc    Desactivar un enfermero/a (Borrado Lógico)
+// --- NUEVA RUTA ---
+router.delete('/:id', adminAuth, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const deactivatedEnfermero = await db.query(
+            `UPDATE Enfermero SET activo = FALSE WHERE id_enfermero = $1 RETURNING *`,
+            [id]
+        );
+        if (deactivatedEnfermero.rowCount === 0) {
+            return res.status(404).json({ msg: 'Enfermero/a no encontrado/a' });
+        }
+        res.json({ msg: 'Enfermero/a desactivado/a exitosamente' });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Error en el Servidor');
