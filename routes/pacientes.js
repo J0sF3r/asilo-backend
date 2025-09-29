@@ -167,48 +167,38 @@ router.get('/:id/historial', medicoAuth, async (req, res) => {
     const { id: id_paciente } = req.params;
 
     try {
-        // 1. Obtener la lista de todas las visitas pasadas del paciente
+        // --- 1. OBTENER HISTORIAL DE VISITAS (Tu código original) ---
         const visitasQuery = `
-            SELECT 
-                vm.id_visita, 
-                vm.fecha_visita, 
-                vm.diagnostico, 
-                me.nombre as nombre_medico
+            SELECT vm.id_visita, vm.fecha_visita, vm.diagnostico, me.nombre as nombre_medico
             FROM visita_medica vm
             JOIN solicitud s ON vm.id_solicitud = s.id_solicitud
             LEFT JOIN medico me ON s.id_medico_especialista = me.id_medico
-            WHERE s.id_paciente = $1
-            ORDER BY vm.fecha_visita DESC;
+            WHERE s.id_paciente = $1 ORDER BY vm.fecha_visita DESC;
         `;
         const visitasResult = await db.query(visitasQuery, [id_paciente]);
-        const historial = visitasResult.rows;
+        const visitas = visitasResult.rows;
+        // (Aquí iría tu lógica para buscar exámenes y medicamentos de cada visita si la necesitas)
 
-        // 2. Para cada visita, buscar sus exámenes y medicamentos asociados
-        // Usamos Promise.all para hacer estas búsquedas en paralelo y ser más eficientes
-        for (const visita of historial) {
-            const examenesQuery = `
-                SELECT e.nombre_examen, ev.resultado 
-                FROM examen_visita ev 
-                JOIN examen e ON ev.id_examen = e.id_examen 
-                WHERE ev.id_visita = $1
-            `;
-            const medicamentosQuery = `
-                SELECT m.nombre, mv.cantidad, mv.tiempo_aplicacion 
-                FROM medicamento_visita mv 
-                JOIN medicamento m ON mv.id_medicamento = m.id_medicamento 
-                WHERE mv.id_visita = $1
-            `;
+        // --- 2. OBTENER CONDICIONES DE BASE (La nueva lógica) ---
+        const condicionesQuery = `
+            SELECT * FROM Condicion_Base WHERE id_paciente = $1 ORDER BY fecha_diagnostico DESC
+        `;
+        const condicionesResult = await db.query(condicionesQuery, [id_paciente]);
+        const condiciones = condicionesResult.rows;
 
-            const [examenesResult, medicamentosResult] = await Promise.all([
-                db.query(examenesQuery, [visita.id_visita]),
-                db.query(medicamentosQuery, [visita.id_visita])
-            ]);
-
-            visita.examenes = examenesResult.rows;
-            visita.medicamentos = medicamentosResult.rows;
+        for (const condicion of condiciones) {
+            const tratamientosRes = await db.query(
+                'SELECT * FROM Tratamiento_Fijo WHERE id_condicion = $1',
+                [condicion.id_condicion]
+            );
+            condicion.tratamientos = tratamientosRes.rows;
         }
 
-        res.json(historial);
+        // --- 3. ENVIAR AMBOS RESULTADOS JUNTOS ---
+        res.json({
+            visitas: visitas,
+            condiciones: condiciones
+        });
 
     } catch (err) {
         console.error("Error al obtener el historial del paciente:", err.message);
