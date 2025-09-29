@@ -71,14 +71,14 @@ router.put('/:id/aprobar', generalAuth, async (req, res) => {
 
 router.post('/:id/programar', foundationAuth, async (req, res) => {
     const { id: id_solicitud } = req.params;
-    const { id_medico_especialista, fecha_visita, lugar, costo_consulta } = req.body;
+  const { id_medico_especialista, fecha_visita, lugar, costo_consulta, costo_final_con_descuento } = req.body;
 
-    try {
-        // --- 1. OPERACIONES DE BASE DE DATOS (QUEDAN IGUAL) ---
+   try {
         const nuevaVisita = await db.query(
-            `INSERT INTO visita_medica (id_solicitud, fecha_visita, lugar, estado, costo_consulta)
-             VALUES ($1, $2, $3, 'programada', $4) RETURNING *`,
-            [id_solicitud, fecha_visita, lugar, costo_consulta || 0]
+            // 2. Lo añadimos a la consulta INSERT
+            `INSERT INTO visita_medica (id_solicitud, fecha_visita, lugar, estado, costo_consulta, costo_final_con_descuento)
+             VALUES ($1, $2, $3, 'programada', $4, $5) RETURNING *`,
+            [id_solicitud, fecha_visita, lugar, costo_consulta || 0, costo_final_con_descuento]
         );
         const solicitudActualizada = await db.query(
             `UPDATE solicitud SET id_medico_especialista = $1, estado = 'programada'
