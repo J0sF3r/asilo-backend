@@ -45,6 +45,10 @@ router.post('/:id/familiares', generalAuth, async (req, res) => {
         res.status(500).send('Error en el Servidor');
     }
 });
+
+
+
+
 // @route   GET api/pacientes
 // @desc    Obtener todos los pacientes
 // @access  Private (Admin)
@@ -75,7 +79,7 @@ router.get('/:id', generalAuth, async (req, res) => {
     }
 });
 
-
+//para obtener los familiares de un paciente
 router.get('/:id/familiares', generalAuth, async (req, res) => {
     try {
         const { id } = req.params;
