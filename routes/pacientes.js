@@ -84,10 +84,10 @@ router.get('/:id/familiares', generalAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const familiares = await db.query(
-            `SELECT f.id_familiar, f.nombre, f.parentesco, f.telefono, f.email 
+            `SELECT f.id_familiar, f.nombre, f.parentesco, f.telefono, f.email, pf.es_contacto_principal 
              FROM Familiar f
              JOIN Paciente_Familiar pf ON f.id_familiar = pf.id_familiar
-             WHERE pf.id_paciente = $1`,
+             WHERE pf.id_paciente = $1 AND f.activo = TRUE`,
             [id]
         );
         res.json(familiares.rows);
