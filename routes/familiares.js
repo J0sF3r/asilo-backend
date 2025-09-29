@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { adminAuth } = require('../middleware/auth');
+const { adminAuth, generalAuth } = require('../middleware/auth');
 
 // @route   POST api/familiares
 // @desc    Registrar un nuevo familiar
