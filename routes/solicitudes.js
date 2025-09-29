@@ -80,13 +80,17 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
              VALUES ($1, $2, $3, 'programada', $4) RETURNING *`,
             [id_solicitud, fecha_visita, lugar, costo_consulta || 0]
         );
-        await db.query(
+        const solicitudActualizada = await db.query(
             `UPDATE solicitud SET id_medico_especialista = $1, estado = 'programada'
-             WHERE id_solicitud = $2 AND estado = 'aprobada'`,
+             WHERE id_solicitud = $2 AND estado = 'aprobada' RETURNING *`, // Añadimos RETURNING *
             [id_medico_especialista, id_solicitud]
         );
 
-        // --- 2. LÓGICA DE CORREO MEJORADA ---
+        if (solicitudActualizada.rowCount === 0) {
+            return res.status(404).json({ msg: 'Solicitud no encontrada o no está en estado "aprobada".' });
+        }
+
+        // --- 2. LÓGICA DE CORREO CORREGIDA ---
         const datosParaCorreoQuery = `
             SELECT 
                 fam.email, 
@@ -97,15 +101,18 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
                 med_gen.nombre AS "nombreMedicoGeneral",
                 enf.nombre as "nombreEnfermero",
                 enf.telefono as "telefonoEnfermero"
-             FROM solicitud s
-             JOIN paciente pac ON s.id_paciente = pac.id_paciente
-             LEFT JOIN paciente_familiar pf ON pac.id_paciente = pf.id_paciente
-             LEFT JOIN familiar fam ON pf.id_familiar = fam.id_familiar
-             LEFT JOIN medico med_esp ON s.id_medico_especialista = med_esp.id_medico
-             LEFT JOIN medico med_gen ON s.id_medico_general = med_gen.id_medico
-             LEFT JOIN enfermero enf ON s.id_enfermero = enf.id_enfermero
-             WHERE s.id_solicitud = $1 AND fam.email IS NOT NULL
-             LIMIT 1
+              FROM solicitud s
+              JOIN paciente pac ON s.id_paciente = pac.id_paciente
+              --  Hacemos JOIN para encontrar al contacto principal
+              JOIN paciente_familiar pf ON pac.id_paciente = pf.id_paciente
+              JOIN familiar fam ON pf.id_familiar = fam.id_familiar
+              LEFT JOIN medico med_esp ON s.id_medico_especialista = med_esp.id_medico
+              LEFT JOIN medico med_gen ON s.id_medico_general = med_gen.id_medico
+              LEFT JOIN enfermero enf ON s.id_enfermero = enf.id_enfermero
+              WHERE s.id_solicitud = $1 
+                -- LA CONDICIÓN CLAVE:
+                AND pf.es_contacto_principal = TRUE 
+                AND fam.email IS NOT NULL;
         `;
         const datosParaCorreoResult = await db.query(datosParaCorreoQuery, [id_solicitud]);
 
@@ -114,6 +121,8 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
             datosCita.fechaVisita = fecha_visita;
             datosCita.lugar = lugar;
             await enviarCorreoNotificacion(email, datosCita);
+        } else {
+            console.log(`Advertencia: No se encontró un CONTACTO PRINCIPAL para la solicitud ${id_solicitud}. No se envió correo.`);
         }
         
         res.status(201).json(nuevaVisita.rows[0]);
@@ -122,7 +131,6 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
         res.status(500).send('Error en el Servidor');
     }
 });
-
 
 router.get('/:id', solicitudesViewAuth, async (req, res) => {
     try {
