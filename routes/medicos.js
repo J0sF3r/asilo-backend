@@ -82,6 +82,27 @@ router.put('/:id', adminAuth, async (req, res) => { // Simplificado a solo admin
     }
 });
 
+// @desc    Obtener los datos de un médico específico
+// --- NUEVA RUTA ---
+router.get('/:id', adminAuth, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const medico = await db.query(
+            "SELECT * FROM Medico WHERE id_medico = $1 AND activo = TRUE",
+            [id]
+        );
+
+        if (medico.rows.length === 0) {
+            return res.status(404).json({ msg: 'Médico no encontrado o inactivo' });
+        }
+        
+        res.json(medico.rows[0]);
+    } catch (err) {
+        console.error("Error al obtener datos del médico:", err.message);
+        res.status(500).send('Error en el Servidor');
+    }
+});
+
 // @route   DELETE /api/medicos/:id
 // @desc    Desactivar un médico (Borrado Lógico)
 router.delete('/:id', adminAuth, async (req, res) => { // Simplificado a solo adminAuth
