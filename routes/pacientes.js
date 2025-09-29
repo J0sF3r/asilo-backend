@@ -306,4 +306,39 @@ router.post('/:id/condiciones', diagnosticoAuth, async (req, res) => {
         res.status(500).send('Error en el Servidor');
     }
 });
+
+// @route   PUT /api/pacientes/:id/familiares/:id_familiar/principal
+// @desc    Designar a un familiar como el contacto principal
+// @access  Private (Admin)
+router.put('/:id/familiares/:id_familiar/principal', adminAuth, async (req, res) => {
+    const { id: id_paciente, id_familiar } = req.params;
+    const client = await db.connect(); // Conexión para manejar la transacción
+
+    try {
+        await client.query('BEGIN'); // Inicia la transacción
+
+        // Paso A: Poner a TODOS los familiares de este paciente como NO principales
+        const resetQuery = 'UPDATE Paciente_Familiar SET es_contacto_principal = FALSE WHERE id_paciente = $1';
+        await client.query(resetQuery, [id_paciente]);
+
+        // Paso B: Poner al familiar SELECCIONADO como SÍ principal
+        const setQuery = 'UPDATE Paciente_Familiar SET es_contacto_principal = TRUE WHERE id_paciente = $1 AND id_familiar = $2 RETURNING *';
+        const result = await client.query(setQuery, [id_paciente, id_familiar]);
+
+        await client.query('COMMIT'); // Confirma la transacción si todo salió bien
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ msg: 'La asignación entre paciente y familiar no fue encontrada.' });
+        }
+        
+        res.json({ msg: 'Contacto principal actualizado exitosamente.', data: result.rows[0] });
+
+    } catch (err) {
+        await client.query('ROLLBACK'); // Deshace la transacción en caso de error
+        console.error(err.message);
+        res.status(500).send('Error en el Servidor');
+    } finally {
+        client.release(); // Libera la conexión
+    }
+});
 module.exports = router;

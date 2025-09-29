@@ -35,22 +35,23 @@ router.get('/', adminAuth, async (req, res) => {
 });
 
 //obtener familiares disponibles para un paciente
-router.get('/disponibles/:id_paciente', adminAuth, async (req, res) => {
+router.get('/:id/familiares', generalAuth, async (req, res) => {
     try {
-        const { id_paciente } = req.params;
-        const disponibles = await db.query(
-            `SELECT * FROM Familiar 
-             WHERE activo = TRUE AND id_familiar NOT IN 
-             (SELECT id_familiar FROM Paciente_Familiar WHERE id_paciente = $1)`,
-            [id_paciente]
+        const { id } = req.params;
+        const familiares = await db.query(
+            // --- CAMBIO AQUÍ: Añadimos "pf.es_contacto_principal" ---
+            `SELECT f.id_familiar, f.nombre, f.parentesco, f.telefono, f.email, pf.es_contacto_principal 
+             FROM Familiar f
+             JOIN Paciente_Familiar pf ON f.id_familiar = pf.id_familiar
+             WHERE pf.id_paciente = $1 AND f.activo = TRUE`,
+            [id]
         );
-        res.json(disponibles.rows);
+        res.json(familiares.rows);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Error en el Servidor');
     }
 });
-
 //actualizar familiar
 router.put('/:id', adminAuth, async (req, res) => {
     const { id } = req.params;
