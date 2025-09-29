@@ -73,4 +73,47 @@ router.put('/entregar', farmaciaAuth, async (req, res) => {
     }
 });
 
+//pendientes de tratamientos fijos
+router.get('/pendientes-fijos', farmaciaAuth, async (req, res) => {
+    try {
+        // Esta consulta es compleja, pero es el corazón de la lógica de farmacia
+        const pendientesFijos = await db.query(
+            `WITH UltimaDispensacion AS (
+                -- Primero, encontramos la fecha de la última entrega para cada tratamiento
+                SELECT 
+                    id_tratamiento_fijo, 
+                    MAX(fecha_cobro) as ultima_fecha
+                FROM Cobro_Medicamento_Fijo
+                GROUP BY id_tratamiento_fijo
+            )
+            -- Ahora, seleccionamos los tratamientos que necesitan una nueva entrega
+            SELECT 
+                tf.id_tratamiento,
+                p.nombre AS nombre_paciente,
+                tf.nombre_medicamento,
+                tf.dosis,
+                tf.frecuencia,
+                ud.ultima_fecha
+            FROM Tratamiento_Fijo tf
+            JOIN Condicion_Base cb ON tf.id_condicion = cb.id_condicion
+            JOIN Paciente p ON cb.id_paciente = p.id_paciente
+            LEFT JOIN UltimaDispensacion ud ON tf.id_tratamiento = ud.id_tratamiento_fijo
+            WHERE 
+                p.activo = TRUE
+                -- Lógica para determinar si está pendiente:
+                -- 1. Nunca se ha dispensado (ultima_fecha es NULL)
+                -- 2. O la próxima dispensación (basada en la frecuencia) es hoy o antes
+                AND (ud.ultima_fecha IS NULL OR 
+                    -- Esta es una lógica simplificada. Asume una frecuencia mensual.
+                    -- En una versión más avanzada, la frecuencia "Dos veces al día" se traduciría a un cálculo más complejo.
+                    ud.ultima_fecha <= NOW() - INTERVAL '28 days'
+                )`
+        );
+        res.json(pendientesFijos.rows);
+    } catch (err) {
+        console.error("Error al obtener tratamientos fijos pendientes:", err.message);
+        res.status(500).send('Error en el Servidor');
+    }
+});
+
 module.exports = router;
