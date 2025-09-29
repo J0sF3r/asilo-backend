@@ -39,7 +39,6 @@ router.get('/disponibles/:id_paciente', adminAuth, async (req, res) => {
     try {
         const { id_paciente } = req.params;
         const disponibles = await db.query(
-   
             `SELECT * FROM Familiar 
              WHERE activo = TRUE AND id_familiar NOT IN 
              (SELECT id_familiar FROM Paciente_Familiar WHERE id_paciente = $1)`,
