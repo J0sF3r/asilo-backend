@@ -8,12 +8,12 @@ const { adminAuth, medicoAuth, diagnosticoAuth, generalAuth } = require('../midd
 // @desc    Registrar un nuevo paciente
 // @access  Private (Admin)
 router.post('/', adminAuth, async (req, res) => {
-    const { nombre, fecha_nacimiento, sexo, direccion, telefono, email } = req.body;
+    const { nombre, fecha_nacimiento, sexo, direccion, telefono, email, fecha_ingreso} = req.body;
     try {
         const newPaciente = await db.query(
-            `INSERT INTO Paciente (nombre, fecha_nacimiento, sexo, direccion, telefono, email) 
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-            [nombre, fecha_nacimiento, sexo, direccion, telefono, email]
+            `INSERT INTO Paciente (nombre, fecha_nacimiento, sexo, direccion, telefono, email, fecha_ingreso) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+            [nombre, fecha_nacimiento, sexo, direccion, telefono, email. fecha_ingreso]
         );
         res.status(201).json(newPaciente.rows[0]);
     } catch (err) {
