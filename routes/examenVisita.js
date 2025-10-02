@@ -66,8 +66,7 @@ router.put('/:id_visita/:id_examen', labAuth, async (req, res) => { // Usamos la
              SET 
                 resultado = $1, 
                 fecha_realizacion = NOW(), 
-                costo_cobrado = $2,
-                estado = 'realizado'
+                costo_cobrado = $2
              WHERE id_visita = $3 AND id_examen = $4 RETURNING *`,
             [resultado, costo_cobrado, id_visita, id_examen]
         );
