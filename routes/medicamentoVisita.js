@@ -1,11 +1,11 @@
-// backend/routes/medicamentoVisita.js
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { adminAuth, generalViewAuth } = require('../middleware/auth');
+// Importamos medicoAuth ya que prescribir es una acción médica
+const { adminAuth, generalViewAuth, medicoAuth } = require('../middleware/auth');
 
 // @route   GET api/visitas/:id/medicamentos
-// @desc    Obtener todos los medicamentos asignados a una visita, antes tenia adminAuth ahora generalViewAuth
+// @desc    Obtener todos los medicamentos asignados a una visita
 router.get('/visitas/:id/medicamentos', generalViewAuth, async (req, res) => {
     const { id } = req.params;
     try {
@@ -24,8 +24,9 @@ router.get('/visitas/:id/medicamentos', generalViewAuth, async (req, res) => {
 });
 
 // @route   POST api/visitas/:id/medicamentos
-// @desc    Asignar un medicamento a una visita antes tenia adminAuth ahora generalViewAuth
-router.post('/visitas/:id/medicamentos', generalViewAuth, async (req, res) => {
+// @desc    Asignar un medicamento a una visita y generar el cobro
+// --- ESTA ES LA RUTA MODIFICADA ---
+router.post('/visitas/:id/medicamentos', medicoAuth, async (req, res) => {
     const { id: id_visita } = req.params;
     const { id_medicamento, cantidad, tiempo_aplicacion } = req.body;
 
@@ -34,15 +35,31 @@ router.post('/visitas/:id/medicamentos', generalViewAuth, async (req, res) => {
     }
 
     try {
-        const newAsignacion = await db.query(
-            `INSERT INTO medicamento_visita (id_visita, id_medicamento, cantidad, tiempo_aplicacion, estado) 
-             VALUES ($1, $2, $3, $4, 'pendiente') RETURNING *`,
-            [id_visita, id_medicamento, cantidad, tiempo_aplicacion]
+        // 1. Buscamos el costo estándar de ese medicamento en el catálogo "Medicamento"
+        const costoMedicamentoInfo = await db.query(
+            `SELECT costo FROM Medicamento WHERE id_medicamento = $1`,
+            [id_medicamento]
         );
+
+        if (costoMedicamentoInfo.rows.length === 0) {
+            return res.status(404).json({ msg: 'Medicamento no encontrado en el catálogo.' });
+        }
+        
+        // 2. Calculamos el costo total (precio de lista * cantidad)
+        const costo_base = parseFloat(costoMedicamentoInfo.rows[0].costo) || 0;
+        const cantidad_num = parseInt(cantidad, 10) || 1;
+        const costo_cobrado = costo_base * cantidad_num;
+
+        // 3. Insertamos el registro en la tabla 'medicamento_visita' con el costo ya calculado
+        const newAsignacion = await db.query(
+            `INSERT INTO medicamento_visita (id_visita, id_medicamento, cantidad, tiempo_aplicacion, estado, costo_cobrado) 
+             VALUES ($1, $2, $3, $4, 'pendiente', $5) RETURNING *`,
+            [id_visita, id_medicamento, cantidad, tiempo_aplicacion, costo_cobrado]
+        );
+        
         res.status(201).json(newAsignacion.rows[0]);
     } catch (err) {
         console.error(err.message);
-        // Manejar error de llave duplicada (si el médico intenta añadir el mismo medicamento dos veces)
         if (err.code === '23505') {
             return res.status(400).json({ msg: 'Este medicamento ya ha sido recetado en esta visita.' });
         }
@@ -52,13 +69,19 @@ router.post('/visitas/:id/medicamentos', generalViewAuth, async (req, res) => {
 
 // @route   DELETE api/visitas/:id/medicamentos/:id_medicamento
 // @desc    Quitar un medicamento de una visita
-router.delete('/visitas/:id/medicamentos/:id_medicamento', adminAuth, async (req, res) => {
+router.delete('/visitas/:id/medicamentos/:id_medicamento', medicoAuth, async (req, res) => {
     const { id: id_visita, id_medicamento } = req.params;
     try {
-        await db.query(
-            "DELETE FROM medicamento_visita WHERE id_visita = $1 AND id_medicamento = $2",
+        // También sería bueno verificar que el medicamento no haya sido ya entregado antes de borrar
+        const result = await db.query(
+            "DELETE FROM medicamento_visita WHERE id_visita = $1 AND id_medicamento = $2 AND estado = 'pendiente' RETURNING *",
             [id_visita, id_medicamento]
         );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ msg: 'No se encontró el medicamento en esta receta o ya fue entregado.' });
+        }
+
         res.json({ msg: 'Medicamento eliminado de la receta' });
     } catch (err) {
         console.error(err.message);
