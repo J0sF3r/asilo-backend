@@ -74,6 +74,24 @@ router.put('/:id_visita/:id_examen', labAuth, async (req, res) => { // Usamos la
         if (updated.rowCount === 0) {
             return res.status(404).json({ msg: 'No se encontró el examen asignado a esta visita.' });
         }
+        
+            // Contamos cuántos exámenes de esta visita AÚN están pendientes
+        const pendientesQuery = `
+            SELECT COUNT(*) 
+            FROM examen_visita 
+            WHERE id_visita = $1 AND resultado IS NULL;
+        `;
+        const pendientesResult = await db.query(pendientesQuery, [id_visita]);
+        const numPendientes = parseInt(pendientesResult.rows[0].count, 10);
+
+        // Si ya no quedan exámenes pendientes para esta visita...
+        if (numPendientes === 0) {
+            // ...actualizamos el estado de la visita a "resultados_listos"
+            await db.query(
+                "UPDATE visita_medica SET estado = 'resultados_listos' WHERE id_visita = $1",
+                [id_visita]
+            );
+        }
 
         res.json(updated.rows[0]);
     } catch(err) {

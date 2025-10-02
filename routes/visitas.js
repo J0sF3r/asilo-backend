@@ -104,27 +104,23 @@ router.get('/mis-citas', medicoAuth, async (req, res) => {
 });
 
 // Obtener visitas con resultados de examen listos para revisión médica
-router.get('/pendientes-revision', foundationAuth, async (req, res) => {
+router.get('/pendientes-revision', medicoAuth, async (req, res) => {
     try {
-        const visitasParaRevisar = await db.query(
-            `SELECT DISTINCT
-                v.id_visita,
-                p.nombre AS nombre_paciente,
-                v.fecha_visita
-            FROM visita_medica v
-            JOIN solicitud s ON v.id_solicitud = s.id_solicitud
+        const query = `
+            SELECT 
+                vm.id_visita,
+                vm.fecha_visita,
+                p.nombre as nombre_paciente
+            FROM visita_medica vm
+            JOIN solicitud s ON vm.id_solicitud = s.id_solicitud
             JOIN paciente p ON s.id_paciente = p.id_paciente
-            WHERE v.estado = 'realizada' AND EXISTS (
-                SELECT 1
-                FROM examen_visita ev
-                WHERE ev.id_visita = v.id_visita
-                AND ev.resultado IS NOT NULL AND ev.resultado <> ''
-            )
-            ORDER BY v.fecha_visita ASC`
-        );
-        res.json(visitasParaRevisar.rows);
+            WHERE vm.estado = 'resultados_listos'  -- Buscamos el nuevo estado
+            ORDER BY vm.fecha_visita ASC;
+        `;
+        const pendientes = await db.query(query);
+        res.json(pendientes.rows);
     } catch (err) {
-        console.error(err.message);
+        console.error("Error al obtener visitas pendientes de revisión:", err.message);
         res.status(500).send('Error en el Servidor');
     }
 });
