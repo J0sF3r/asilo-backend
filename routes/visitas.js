@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { adminAuth, foundationAuth, medicoAuth, } = require('../middleware/auth');
+const { adminAuth, foundationAuth, medicoAuth, auth } = require('../middleware/auth');
 
 // Crear un nuevo registro de visita médica
 router.post('/', adminAuth, async (req, res) => {
@@ -61,6 +61,8 @@ router.get('/', foundationAuth, async (req, res) => {
         res.status(500).send('Error en el servidor');
     }
 });
+
+
 // OBTENER CITAS PROGRAMADAS PARA EL MÉDICO AUTENTICADO
 // En backend/routes/visitas.js
 router.get('/mis-citas', medicoAuth, async (req, res) => {
@@ -104,9 +106,12 @@ router.get('/mis-citas', medicoAuth, async (req, res) => {
 });
 
 // Obtener visitas con resultados de examen listos para revisión médica
-router.get('/pendientes-revision', medicoAuth, async (req, res) => {
+router.get('/pendientes-revision', auth, async (req, res) => { // Usamos el middleware 'auth' general
     try {
-        const query = `
+        const userRole = req.user.nombre_rol;
+        const userId = req.user.id_usuario; // Obtenemos el ID del usuario del token
+
+        let query = `
             SELECT 
                 vm.id_visita,
                 vm.fecha_visita,
@@ -114,17 +119,35 @@ router.get('/pendientes-revision', medicoAuth, async (req, res) => {
             FROM visita_medica vm
             JOIN solicitud s ON vm.id_solicitud = s.id_solicitud
             JOIN paciente p ON s.id_paciente = p.id_paciente
-            WHERE vm.estado = 'resultados_listos'  -- Buscamos el nuevo estado
-            ORDER BY vm.fecha_visita ASC;
+            WHERE vm.estado = 'resultados_listos' 
         `;
-        const pendientes = await db.query(query);
+        
+        const queryParams = [];
+
+        // Si el usuario es un Administrador, puede ver todas las pendientes
+        if (userRole === 'Administración') {
+            // No se añaden más filtros, la consulta se queda como está.
+        } 
+        // Si es un Médico Especialista, solo ve las suyas
+        else if (userRole === 'Medico Especialista') {
+            query += ` AND s.id_medico_especialista = $1`;
+            queryParams.push(userId); // Filtramos por el ID del médico logueado
+        } 
+        // Si es cualquier otro rol (ej. Médico General), no debe ver nada
+        else {
+            return res.json([]); // Devolvemos una lista vacía
+        }
+
+        query += ` ORDER BY vm.fecha_visita ASC;`;
+
+        const pendientes = await db.query(query, queryParams);
         res.json(pendientes.rows);
+
     } catch (err) {
         console.error("Error al obtener visitas pendientes de revisión:", err.message);
         res.status(500).send('Error en el Servidor');
     }
 });
-
 //  Actualizar una visita médica y la solicitud original
 router.put('/:id', medicoAuth, async (req, res) => { 
     const { id: id_visita } = req.params;
