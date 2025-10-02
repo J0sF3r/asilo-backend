@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { adminAuth, generalViewAuth } = require('../middleware/auth');
+const { adminAuth, generalViewAuth, labAuth } = require('../middleware/auth');
 
 // @desc    Obtener todos los exámenes asignados a una visita, antes tenia adminAuth ahora generalViewAuth
 router.get('/visitas/:id/examenes', generalViewAuth, async (req, res) => {
