@@ -82,7 +82,7 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
         );
         const solicitudActualizada = await db.query(
             `UPDATE solicitud SET id_medico_especialista = $1, estado = 'programada'
-             WHERE id_solicitud = $2 AND estado = 'aprobada' RETURNING *`, // Añadimos RETURNING *
+             WHERE id_solicitud = $2 AND estado = 'aprobada' RETURNING *`, 
             [id_medico_especialista, id_solicitud]
         );
 
@@ -90,7 +90,6 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
             return res.status(404).json({ msg: 'Solicitud no encontrada o no está en estado "aprobada".' });
         }
 
-        // --- 2. LÓGICA DE CORREO CORREGIDA ---
         const datosParaCorreoQuery = `
             SELECT 
                 fam.email, 
