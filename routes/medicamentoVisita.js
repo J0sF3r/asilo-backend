@@ -52,9 +52,9 @@ router.post('/visitas/:id/medicamentos', medicoAuth, async (req, res) => {
 
         // 3. Insertamos el registro en la tabla 'medicamento_visita' con el costo ya calculado
         const newAsignacion = await db.query(
-            `INSERT INTO medicamento_visita (id_visita, id_medicamento, cantidad, tiempo_aplicacion, estado, costo_cobrado) 
-             VALUES ($1, $2, $3, $4, 'pendiente', $5) RETURNING *`,
-            [id_visita, id_medicamento, cantidad, tiempo_aplicacion, costo_cobrado]
+            `INSERT INTO medicamento_visita (id_visita, id_medicamento, cantidad, tiempo_aplicacion, estado) 
+             VALUES ($1, $2, $3, $4, 'pendiente') RETURNING *`,
+            [id_visita, id_medicamento, cantidad, tiempo_aplicacion]
         );
         
         res.status(201).json(newAsignacion.rows[0]);
