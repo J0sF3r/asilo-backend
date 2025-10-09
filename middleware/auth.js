@@ -38,17 +38,18 @@ const labAuth = (req, res, next) => {
 };
 // Middleware para roles de Farmacia
 const farmaciaAuth = (req, res, next) => {
+    console.log('🔥🔥🔥 FARMACIA AUTH EJECUTÁNDOSE 🔥🔥🔥');
     auth(req, res, () => {
-
-         console.log('--- Verificando permisos en farmaciaAuth ---');
-        console.log('Rol del usuario según el token:', req.user.nombre_rol);
-        console.log('¿El rol es "Administración"?', req.user.nombre_rol === 'Administración');
-        console.log('¿El rol es "Farmacia"?', req.user.nombre_rol === 'Farmacia');
-        // --- FIN DE LÍNEAS DE DEPURACIÓN ---
+        console.log('✅ Auth pasó, verificando rol...');
+        console.log('Rol del usuario:', req.user.nombre_rol);
+        console.log('¿Es Administración?', req.user.nombre_rol === 'Administración');
+        console.log('¿Es Farmacia?', req.user.nombre_rol === 'Farmacia');
 
         if (req.user.nombre_rol === 'Administración' || req.user.nombre_rol === 'Farmacia') {
+            console.log('✅✅✅ ACCESO PERMITIDO ✅✅✅');
             next();
         } else {
+            console.log('❌❌❌ ACCESO DENEGADO ❌❌❌');
             res.status(403).json({ msg: 'Acceso denegado. Se requiere rol de Farmacia o Administrador.' });
         }
     });
