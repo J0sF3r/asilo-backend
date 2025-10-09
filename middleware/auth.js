@@ -39,6 +39,13 @@ const labAuth = (req, res, next) => {
 // Middleware para roles de Farmacia
 const farmaciaAuth = (req, res, next) => {
     auth(req, res, () => {
+
+         console.log('--- Verificando permisos en farmaciaAuth ---');
+        console.log('Rol del usuario según el token:', req.user.nombre_rol);
+        console.log('¿El rol es "Administración"?', req.user.nombre_rol === 'Administración');
+        console.log('¿El rol es "Farmacia"?', req.user.nombre_rol === 'Farmacia');
+        // --- FIN DE LÍNEAS DE DEPURACIÓN ---
+
         if (req.user.nombre_rol === 'Administración' || req.user.nombre_rol === 'Farmacia') {
             next();
         } else {
