@@ -49,7 +49,7 @@ router.post('/login', async (req, res) => {
                 if (err) throw err;
                 res.json({ token, rol: user.nombre_rol });
             }
-        );
+        );F
     } catch (err) {
         console.error("--- ERROR DETALLADO EN RUTA DE LOGIN ---");
         console.error(err); // Imprimimos el objeto de error completo

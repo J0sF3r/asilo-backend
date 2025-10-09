@@ -31,6 +31,8 @@ router.get('/pendientes-visita', farmaciaAuth, async (req, res) => {
 // @route   PUT api/farmacia/entregar-visita
 // @desc    Entregar un medicamento de una VISITA PUNTUAL y registrar el costo
 router.put('/entregar-visita', farmaciaAuth, async (req, res) => {
+        console.log('🚀🚀🚀 DENTRO DE LA RUTA /entregar-visita 🚀🚀🚀');
+    console.log('Body recibido:', req.body);
     const { id_visita, id_medicamento } = req.body;
     try {
         // 1. Buscamos la prescripción pendiente y el costo del medicamento
