@@ -35,22 +35,6 @@ router.post('/visitas/:id/medicamentos', medicoAuth, async (req, res) => {
     }
 
     try {
-        // 1. Buscamos el costo estándar de ese medicamento en el catálogo "Medicamento"
-        const costoMedicamentoInfo = await db.query(
-            `SELECT costo FROM Medicamento WHERE id_medicamento = $1`,
-            [id_medicamento]
-        );
-
-        if (costoMedicamentoInfo.rows.length === 0) {
-            return res.status(404).json({ msg: 'Medicamento no encontrado en el catálogo.' });
-        }
-        
-        // 2. Calculamos el costo total (precio de lista * cantidad)
-        const costo_base = parseFloat(costoMedicamentoInfo.rows[0].costo) || 0;
-        const cantidad_num = parseInt(cantidad, 10) || 1;
-        const costo_cobrado = costo_base * cantidad_num;
-
-        // 3. Insertamos el registro en la tabla 'medicamento_visita' con el costo ya calculado
         const newAsignacion = await db.query(
             `INSERT INTO medicamento_visita (id_visita, id_medicamento, cantidad, tiempo_aplicacion, estado) 
              VALUES ($1, $2, $3, $4, 'pendiente') RETURNING *`,
@@ -66,7 +50,6 @@ router.post('/visitas/:id/medicamentos', medicoAuth, async (req, res) => {
         res.status(500).send('Error en el Servidor');
     }
 });
-
 // @route   DELETE api/visitas/:id/medicamentos/:id_medicamento
 // @desc    Quitar un medicamento de una visita
 router.delete('/visitas/:id/medicamentos/:id_medicamento', medicoAuth, async (req, res) => {

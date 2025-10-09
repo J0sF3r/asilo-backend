@@ -33,7 +33,6 @@ router.get('/pendientes-visita', farmaciaAuth, async (req, res) => {
 router.put('/entregar-visita', farmaciaAuth, async (req, res) => {
     const { id_visita, id_medicamento } = req.body;
     try {
-        // 1. Buscamos la prescripción pendiente y el costo del medicamento
         const medInfo = await db.query(
             `SELECT m.costo, mv.cantidad FROM medicamento_visita mv
              JOIN medicamento m ON mv.id_medicamento = m.id_medicamento
@@ -41,15 +40,12 @@ router.put('/entregar-visita', farmaciaAuth, async (req, res) => {
             [id_visita, id_medicamento]
         );
         if (medInfo.rows.length === 0) {
-            return res.status(404).json({ msg: 'Este medicamento no está pendiente.' });
+            return res.status(404).json({ msg: 'Este medicamento no está pendiente o ya fue entregado.' });
         }
-
-        // 2. Calculamos el costo en este momento
         const costo_base = parseFloat(medInfo.rows[0].costo) || 0;
         const cantidad_num = parseInt(medInfo.rows[0].cantidad, 10) || 1;
         const costo_cobrado = costo_base * cantidad_num;
 
-        // 3. Actualizamos el registro con el estado, la fecha Y EL COSTO
         await db.query(
             `UPDATE medicamento_visita SET estado = 'entregado', fecha_entrega = NOW(), costo_cobrado = $3
              WHERE id_visita = $1 AND id_medicamento = $2`,
@@ -61,7 +57,6 @@ router.put('/entregar-visita', farmaciaAuth, async (req, res) => {
         res.status(500).json({ msg: "Error en el servidor al procesar la entrega." });
     }
 });
-
 // @route   GET api/farmacia/pendientes-fijos
 // @desc    Obtener la lista de TRATAMIENTOS FIJOS pendientes de dispensar
 router.get('/pendientes-fijos', farmaciaAuth, async (req, res) => {
