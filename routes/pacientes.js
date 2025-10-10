@@ -172,8 +172,8 @@ router.get('/:id/historial', medicoAuth, async (req, res) => {
             SELECT 
                 vm.id_visita, 
                 vm.fecha_visita, 
-                vm.diagnostico,         -- <-- Se añade diagnóstico
-                vm.tratamiento_recetado, -- <-- Se añade tratamiento
+                vm.diagnostico,  
+                vm.observaciones_medicas,       
                 me.nombre as nombre_medico
             FROM visita_medica vm
             JOIN solicitud s ON vm.id_solicitud = s.id_solicitud
