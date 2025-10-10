@@ -149,60 +149,56 @@ router.get('/pendientes-revision', auth, async (req, res) => { // Usamos el midd
     }
 });
 //  Actualizar una visita médica y la solicitud original
-router.put('/:id', medicoAuth, async (req, res) => { 
+router.put('/:id', medicoAuth, async (req, res) => {
     const { id: id_visita } = req.params;
     const { estado, diagnostico, observaciones_medicas, proxima_cita } = req.body;
 
     try {
-        const fieldsToUpdate = [];
-        const values = [];
-        let queryIndex = 1;
+        let visitaActualizada;
 
-        // 1. Construimos la consulta dinámicamente
-        if (estado) {
-            fieldsToUpdate.push(`estado = $${queryIndex++}`);
-            values.push(estado);
+        // Primero, obtenemos el estado actual de la visita
+        const visitaExistenteResult = await db.query('SELECT * FROM visita_medica WHERE id_visita = $1', [id_visita]);
+        if (visitaExistenteResult.rowCount === 0) {
+            return res.status(404).json({ msg: 'Visita no encontrada.' });
         }
-        if (diagnostico) {
-            fieldsToUpdate.push(`diagnostico = $${queryIndex++}`);
-            values.push(diagnostico);
-        }
-        if (observaciones_medicas) {
-            fieldsToUpdate.push(`observaciones_medicas = $${queryIndex++}`);
-            values.push(observaciones_medicas);
-        }
-        if (proxima_cita) {
-            fieldsToUpdate.push(`proxima_cita = $${queryIndex++}`);
-            values.push(proxima_cita);
-        }
+        
+        // Construimos el objeto con los datos que VAMOS a guardar
+        const dataToUpdate = {
+            estado: estado || visitaExistenteResult.rows[0].estado,
+            diagnostico: diagnostico || visitaExistenteResult.rows[0].diagnostico,
+            observaciones_medicas: observaciones_medicas || visitaExistenteResult.rows[0].observaciones_medicas,
+            proxima_cita: proxima_cita || visitaExistenteResult.rows[0].proxima_cita,
+        };
+        
+        // Ejecutamos el UPDATE con todos los campos
+        const updateResult = await db.query(
+            `UPDATE visita_medica 
+             SET estado = $1, diagnostico = $2, observaciones_medicas = $3, proxima_cita = $4
+             WHERE id_visita = $5 RETURNING *;`,
+            [dataToUpdate.estado, dataToUpdate.diagnostico, dataToUpdate.observaciones_medicas, dataToUpdate.proxima_cita, id_visita]
+        );
+        visitaActualizada = updateResult.rows[0];
 
-        // Si no se envió ningún campo para actualizar, no hacemos nada
-        if (fieldsToUpdate.length === 0) {
-            // Buscamos la visita solo para obtener la info para la lógica de cobro
-             const visitaExistente = await db.query('SELECT * FROM visita_medica WHERE id_visita = $1', [id_visita]);
-             if (visitaExistente.rowCount === 0) return res.status(404).json({ msg: 'Visita no encontrada.' });
-        } else {
-            // Si hay campos para actualizar, ejecutamos el UPDATE
-            values.push(id_visita);
-            const updateQuery = `
-                UPDATE visita_medica 
-                SET ${fieldsToUpdate.join(', ')} 
-                WHERE id_visita = $${queryIndex} 
-                RETURNING *;
-            `;
-            const updatedResult = await db.query(updateQuery, values);
-            if (updatedResult.rowCount === 0) return res.status(404).json({ msg: 'Visita no encontrada.' });
-        }
 
-        if (estado === 'completada') {
-            const costoConsulta = parseFloat(updatedVisita.rows[0].costo_consulta) || 0;
+        // --- TU LÓGICA DE COBRO (AHORA FUNCIONARÁ) ---
+        // Se ejecuta si el estado final es 'completada'
+        if (visitaActualizada.estado === 'completada') {
+            const costoConsulta = parseFloat(visitaActualizada.costo_final_con_descuento) || 0;
+            
             const costoExamenesRes = await db.query(
-                `SELECT COALESCE(SUM(e.costo), 0) as total FROM examen_visita ev
-                 JOIN examen e ON ev.id_examen = e.id_examen WHERE ev.id_visita = $1`,
+                `SELECT COALESCE(SUM(costo_cobrado), 0) as total FROM examen_visita WHERE id_visita = $1`,
                 [id_visita]
             );
             const totalExamenes = parseFloat(costoExamenesRes.rows[0].total);
-            const montoFinal = costoConsulta + totalExamenes;
+
+            const costoMedicamentosRes = await db.query(
+                `SELECT COALESCE(SUM(costo_cobrado), 0) as total FROM medicamento_visita WHERE id_visita = $1`,
+                [id_visita]
+            );
+            const totalMedicamentos = parseFloat(costoMedicamentosRes.rows[0].total);
+
+            const montoFinal = costoConsulta + totalExamenes + totalMedicamentos;
+            
             await db.query(
                 `INSERT INTO cobro (id_visita, monto_total, monto_pagado, estado_pago)
                  VALUES ($1, $2, 0, 'pendiente')
@@ -210,11 +206,11 @@ router.put('/:id', medicoAuth, async (req, res) => {
                 [id_visita, montoFinal]
             );
             
-            const id_solicitud = updatedVisita.rows[0].id_solicitud;
+            const id_solicitud = visitaActualizada.id_solicitud;
             await db.query(`UPDATE solicitud SET estado = 'atendida' WHERE id_solicitud = $1`, [id_solicitud]);
         }
 
-        res.json({ msg: 'Visita actualizada exitosamente' });
+        res.json(visitaActualizada);
 
     } catch (err) {
         console.error("Error al actualizar la visita:", err.message);
