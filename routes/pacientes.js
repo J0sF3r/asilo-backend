@@ -195,19 +195,22 @@ router.get('/:id/historial', medicoAuth, async (req, res) => {
 
             // Buscamos los medicamentos recetados en esta visita
             const medicamentosRes = await db.query(
-                `SELECT m.nombre, mv.cantidad, mv.tiempo_aplicacion FROM medicamento_visita mv
-                 JOIN medicamento m ON mv.id_medicamento = m.id_medicamento WHERE mv.id_visita = $1`,
+               `SELECT m.nombre, mv.cantidad, mv.tiempo_aplicacion 
+                 FROM medicamento_visita mv
+                 JOIN medicamento m ON mv.id_medicamento = m.id_medicamento 
+                 WHERE mv.id_visita = $1`,
                 [visita.id_visita]
             );
             visita.medicamentos = medicamentosRes.rows;
         }
 
         // --- 3. OBTENER CONDICIONES DE BASE (sin cambios) ---
-        const condicionesQuery = `SELECT * FROM Condicion_Base WHERE id_paciente = $1`;
-        const condicionesResult = await db.query(condicionesQuery, [id_paciente]);
+        const condicionesResult = await db.query('SELECT * FROM Condicion_Base WHERE id_paciente = $1', [id_paciente]);
         const condiciones = condicionesResult.rows;
-        // ... (lógica para obtener tratamientos fijos de cada condición)
-
+        for (const condicion of condiciones) {
+            const tratamientosRes = await db.query('SELECT * FROM Tratamiento_Fijo WHERE id_condicion = $1', [condicion.id_condicion]);
+            condicion.tratamientos = tratamientosRes.rows;
+        }
         // --- 4. ENVIAR TODO JUNTO ---
         res.json({
             visitas: visitas,
