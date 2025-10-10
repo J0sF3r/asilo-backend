@@ -169,28 +169,16 @@ router.get('/:id/historial', medicoAuth, async (req, res) => {
     try {
         // --- 1. OBTENER HISTORIAL DE VISITAS ---
         const visitasQuery = `
-         SELECT 
+            SELECT 
                 vm.id_visita, 
                 vm.fecha_visita, 
-                vm.diagnostico, 
-                vm.observaciones_medicas,
-                me.nombre as nombre_medico,
-                -- Agrupamos los medicamentos de cada visita en un array JSON
-                COALESCE(json_agg(
-                    json_build_object(
-                        'nombre', med.nombre, 
-                        'cantidad', mv.cantidad, 
-                        'indicaciones', mv.tiempo_aplicacion
-                    )
-                ) FILTER (WHERE med.id_medicamento IS NOT NULL), '[]'::json) as medicamentos
+                vm.diagnostico,  
+                vm.observaciones_medicas,       
+                me.nombre as nombre_medico
             FROM visita_medica vm
             JOIN solicitud s ON vm.id_solicitud = s.id_solicitud
             LEFT JOIN medico me ON s.id_medico_especialista = me.id_medico
-            LEFT JOIN medicamento_visita mv ON vm.id_visita = mv.id_visita
-            LEFT JOIN medicamento med ON mv.id_medicamento = med.id_medicamento
-            WHERE s.id_paciente = $1
-            GROUP BY vm.id_visita, me.nombre -- Agrupamos por visita para que json_agg funcione
-            ORDER BY vm.fecha_visita DESC;
+            WHERE s.id_paciente = $1 ORDER BY vm.fecha_visita DESC;
         `;
         const visitasResult = await db.query(visitasQuery, [id_paciente]);
         const visitas = visitasResult.rows;
