@@ -152,16 +152,46 @@ router.get('/pendientes-revision', auth, async (req, res) => { // Usamos el midd
 router.put('/:id', medicoAuth, async (req, res) => { 
     const { id: id_visita } = req.params;
     const { estado, diagnostico, observaciones_medicas, proxima_cita } = req.body;
-    
+
     try {
-        const updatedVisita = await db.query(
-            `UPDATE visita_medica SET estado = $1, diagnostico = $2, observaciones_medicas = $3, proxima_cita = $4
-             WHERE id_visita = $5 RETURNING id_solicitud, costo_consulta`,
-            [estado, diagnostico, observaciones_medicas, proxima_cita || null, id_visita]
-        );
-        
-        if (updatedVisita.rows.length === 0) {
-            return res.status(404).json({ msg: 'Visita no encontrada' });
+        const fieldsToUpdate = [];
+        const values = [];
+        let queryIndex = 1;
+
+        // 1. Construimos la consulta dinámicamente
+        if (estado) {
+            fieldsToUpdate.push(`estado = $${queryIndex++}`);
+            values.push(estado);
+        }
+        if (diagnostico) {
+            fieldsToUpdate.push(`diagnostico = $${queryIndex++}`);
+            values.push(diagnostico);
+        }
+        if (observaciones_medicas) {
+            fieldsToUpdate.push(`observaciones_medicas = $${queryIndex++}`);
+            values.push(observaciones_medicas);
+        }
+        if (proxima_cita) {
+            fieldsToUpdate.push(`proxima_cita = $${queryIndex++}`);
+            values.push(proxima_cita);
+        }
+
+        // Si no se envió ningún campo para actualizar, no hacemos nada
+        if (fieldsToUpdate.length === 0) {
+            // Buscamos la visita solo para obtener la info para la lógica de cobro
+             const visitaExistente = await db.query('SELECT * FROM visita_medica WHERE id_visita = $1', [id_visita]);
+             if (visitaExistente.rowCount === 0) return res.status(404).json({ msg: 'Visita no encontrada.' });
+        } else {
+            // Si hay campos para actualizar, ejecutamos el UPDATE
+            values.push(id_visita);
+            const updateQuery = `
+                UPDATE visita_medica 
+                SET ${fieldsToUpdate.join(', ')} 
+                WHERE id_visita = $${queryIndex} 
+                RETURNING *;
+            `;
+            const updatedResult = await db.query(updateQuery, values);
+            if (updatedResult.rowCount === 0) return res.status(404).json({ msg: 'Visita no encontrada.' });
         }
 
         if (estado === 'completada') {
