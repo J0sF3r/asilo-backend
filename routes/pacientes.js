@@ -129,6 +129,17 @@ router.get('/:id/solicitudes', generalAuth, async (req, res) => {
                 );
                 visita.examenes = examenesRes.rows;
                 solicitud.visita = visita;
+                
+                 const medicamentosRes = await db.query(
+                    `SELECT m.nombre, mv.cantidad, mv.tiempo_aplicacion, mv.estado
+                     FROM medicamento_visita mv
+                     JOIN medicamento m ON mv.id_medicamento = m.id_medicamento
+                     WHERE mv.id_visita = $1`,
+                    [visita.id_visita]
+                );
+                visita.medicamentos = medicamentosRes.rows;
+                
+                solicitud.visita = visita;
             }
         }
         res.json(solicitudes);
