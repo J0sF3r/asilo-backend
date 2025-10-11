@@ -33,6 +33,7 @@ app.use('/api/tratamientos', require('./routes/tratamientos'));
 app.use('/api/condiciones', require('./routes/condiciones'));
 app.use('/api/cobros-medicamentos', require('./routes/cobros'));
 app.use('/api/examenes-visita', require('./routes/examenVisita'));
+app.use('/api/transacciones', require('./routes/transacciones.js'));
 
 const PORT = process.env.PORT || 5000;
 
