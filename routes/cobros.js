@@ -3,32 +3,47 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-// Usaremos farmaciaAuth que, según tu configuración, permite a 'Farmacia' y 'Administración'
 const { farmaciaAuth } = require('../middleware/auth');
 
 // @route   POST api/cobros-medicamentos
-// @desc    Registrar un nuevo cobro por un medicamento fijo dispensado
-// @access  Private (Farmacia/Admin)
+// @desc    Registrar un cobro por Tratamiento Fijo en la tabla unificada
 router.post('/', farmaciaAuth, async (req, res) => {
-    const { 
-        id_tratamiento_fijo, 
-        cantidad_dispensada, 
-        costo_total 
-    } = req.body;
-
-    // Obtenemos el ID del usuario que está registrando el cobro (el farmacéutico)
-    const id_usuario_farmacia = req.user.id_usuario; 
+    const { id_tratamiento_fijo, cantidad_dispensada, costo_total } = req.body;
 
     try {
-        const nuevoCobro = await db.query(
-            `INSERT INTO Cobro_Medicamento_Fijo 
-                (id_tratamiento_fijo, fecha_cobro, cantidad_dispensada, costo_total, id_usuario_farmacia)
-             VALUES ($1, CURRENT_DATE, $2, $3, $4) RETURNING *`,
-            [id_tratamiento_fijo, cantidad_dispensada, costo_total, id_usuario_farmacia]
+        // 1. Buscamos la información necesaria para la descripción del cobro
+        const infoParaCobro = await db.query(
+            `SELECT 
+                tf.nombre_medicamento, 
+                cb.id_paciente
+             FROM Tratamiento_Fijo tf
+             JOIN Condicion_Base cb ON tf.id_condicion = cb.id_condicion
+             WHERE tf.id_tratamiento = $1`,
+            [id_tratamiento_fijo]
         );
-        res.status(201).json(nuevoCobro.rows[0]);
+
+        const { nombre_medicamento, id_paciente } = infoParaCobro.rows[0];
+        const descripcion = `Suministro de Trat. Fijo: ${nombre_medicamento} (${cantidad_dispensada})`;
+
+        // 2. Buscamos al familiar principal para asignarle el cobro
+        const infoFamiliar = await db.query(
+            'SELECT id_familiar FROM paciente_familiar WHERE id_paciente = $1 AND es_contacto_principal = TRUE',
+            [id_paciente]
+        );
+        const id_familiar = infoFamiliar.rows[0]?.id_familiar;
+
+        // 3. Creamos el registro en la tabla maestra 'Movimiento_Financiero'
+        const nuevoMovimiento = await db.query(
+            `INSERT INTO Movimiento_Financiero 
+                (fecha, tipo, descripcion, monto, id_familiar, estado_pago, monto_original)
+             VALUES (NOW(), 'Cargo Tratamiento Fijo', $1, $2, $3, 'Pendiente', $2)`,
+            [descripcion, -costo_total, id_familiar]
+        );
+
+        res.status(201).json(nuevoMovimiento.rows[0]);
+
     } catch (err) {
-        console.error(err.message);
+        console.error("Error al registrar el cobro de tratamiento fijo:", err.message);
         res.status(500).send('Error en el Servidor');
     }
 });

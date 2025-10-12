@@ -70,24 +70,54 @@ router.put('/:id/aprobar', generalAuth, async (req, res) => {
 });
 
 router.post('/:id/programar', foundationAuth, async (req, res) => {
-    const { id: id_solicitud } = req.params;
-  const { id_medico_especialista, fecha_visita, lugar, costo_consulta, costo_final_con_descuento } = req.body;
+        const { id: id_solicitud } = req.params;
+    
+    const { id_medico_especialista, fecha_visita, lugar, costo_consulta, descuento_porcentaje } = req.body;
 
-   try {
+    try {
+        c// --- 1. CREAMOS LA VISITA (YA NO GUARDA COSTOS) ---
         const nuevaVisita = await db.query(
-            // 2. Lo añadimos a la consulta INSERT
-            `INSERT INTO visita_medica (id_solicitud, fecha_visita, lugar, estado, costo_consulta, costo_final_con_descuento)
-             VALUES ($1, $2, $3, 'programada', $4, $5) RETURNING *`,
-            [id_solicitud, fecha_visita, lugar, costo_consulta || 0, costo_final_con_descuento]
+            `INSERT INTO visita_medica (id_solicitud, fecha_visita, lugar, estado)
+             VALUES ($1, $2, $3, 'programada') RETURNING *`,
+            [id_solicitud, fecha_visita, lugar]
         );
+        const id_visita = nuevaVisita.rows[0].id_visita;
+
+        // --- 2. ACTUALIZAMOS LA SOLICITUD (SIN CAMBIOS) ---
         const solicitudActualizada = await db.query(
             `UPDATE solicitud SET id_medico_especialista = $1, estado = 'programada'
              WHERE id_solicitud = $2 AND estado = 'aprobada' RETURNING *`, 
             [id_medico_especialista, id_solicitud]
         );
-
+        
         if (solicitudActualizada.rowCount === 0) {
             return res.status(404).json({ msg: 'Solicitud no encontrada o no está en estado "aprobada".' });
+        }
+         // --- 3. LÓGICA DE COBRO EN LA NUEVA TABLA ---
+        const costoBase = parseFloat(costo_consulta) || 0;
+        const descuento = parseFloat(descuento_porcentaje) || 0;
+        const montoFinal = costoBase - (costoBase * (descuento / 100));
+
+        if (montoFinal > 0) {
+            // Buscamos el id_familiar y el nombre del paciente para la descripción
+            const infoPaciente = await db.query(
+                `SELECT s.id_paciente, p.nombre AS nombre_paciente, pf.id_familiar 
+                 FROM solicitud s
+                 JOIN paciente p ON s.id_paciente = p.id_paciente
+                 LEFT JOIN paciente_familiar pf ON p.id_paciente = pf.id_paciente AND pf.es_contacto_principal = TRUE
+                 WHERE s.id_solicitud = $1`,
+                [id_solicitud]
+            );
+
+            const { nombre_paciente, id_familiar } = infoPaciente.rows[0];
+            const descripcion = `Consulta con especialista para ${nombre_paciente}`;
+
+            await db.query(
+                `INSERT INTO Movimiento_Financiero 
+                    (fecha, tipo, descripcion, monto, id_visita, id_familiar, estado_pago, monto_original, descuento_aplicado)
+                 VALUES ($1, 'Cargo Consulta', $2, $3, $4, $5, 'Pendiente', $6, $7)`,
+                [fecha_visita, descripcion, -montoFinal, id_visita, id_familiar, -costoBase, descuento]
+            );
         }
 
         const datosParaCorreoQuery = `

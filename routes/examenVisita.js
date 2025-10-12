@@ -47,34 +47,47 @@ router.post('/visitas/:id/examenes', generalViewAuth, async (req, res) => {
 // @route   PUT api/examenes_visita/:id_visita/:id_examen
 // @desc    Actualizar el resultado de un examen en una visita
 router.put('/:id_visita/:id_examen', labAuth, async (req, res) => { // Usamos labAuth o el permiso que corresponda
-    const { id_visita, id_examen } = req.params;
+const { id_visita, id_examen } = req.params;
     const { resultado } = req.body;
 
     try {
-        // 1. Buscamos el costo estándar del examen en el catálogo "examen"
-        const costoExamenInfo = await db.query(
-            `SELECT costo FROM examen WHERE id_examen = $1`,
-            [id_examen]
-        );
-        
-        // Si no se encuentra el examen en el catálogo, usamos 0 como costo
-        const costo_cobrado = costoExamenInfo.rows[0]?.costo || 0;
-
-        // 2. Actualizamos la tabla examen_visita con el resultado Y el costo cobrado
+        // --- 1. ACTUALIZAMOS EL EXAMEN (YA NO GUARDA COSTOS) ---
         const updated = await db.query(
             `UPDATE examen_visita 
-             SET 
-                resultado = $1, 
-                fecha_realizacion = NOW(), 
-                costo_cobrado = $2
-             WHERE id_visita = $3 AND id_examen = $4 RETURNING *`,
-            [resultado, costo_cobrado, id_visita, id_examen]
+             SET resultado = $1, fecha_realizacion = NOW(), estado = 'realizado'
+             WHERE id_visita = $2 AND id_examen = $3 RETURNING *`,
+            [resultado, id_visita, id_examen]
         );
         
         if (updated.rowCount === 0) {
             return res.status(404).json({ msg: 'No se encontró el examen asignado a esta visita.' });
         }
+        const infoParaCobro = await db.query(
+            `SELECT 
+                e.costo, e.nombre_examen, s.id_paciente
+             FROM examen e
+             JOIN examen_visita ev ON e.id_examen = ev.id_examen
+             JOIN visita_medica vm ON ev.id_visita = vm.id_visita
+             JOIN solicitud s ON vm.id_solicitud = s.id_solicitud
+             WHERE ev.id_visita = $1 AND ev.id_examen = $2`,
+            [id_visita, id_examen]
+        );
         
+        const { costo, nombre_examen, id_paciente } = infoParaCobro.rows[0];
+
+        if (costo > 0) {
+            const infoFamiliar = await db.query(
+                'SELECT id_familiar FROM paciente_familiar WHERE id_paciente = $1 AND es_contacto_principal = TRUE',
+                [id_paciente]
+            );
+            const id_familiar = infoFamiliar.rows[0]?.id_familiar;
+
+            await db.query(
+                `INSERT INTO Movimiento_Financiero (fecha, tipo, descripcion, monto, id_visita, id_familiar, estado_pago, monto_original)
+                 VALUES (NOW(), 'Cargo Examen', $1, $2, $3, $4, 'Pendiente', $2)`,
+                [nombre_examen, -costo, id_visita, id_familiar]
+            );
+        }
             // Contamos cuántos exámenes de esta visita AÚN están pendientes
         const pendientesQuery = `
             SELECT COUNT(*) 

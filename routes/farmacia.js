@@ -30,35 +30,59 @@ router.get('/pendientes-visita', farmaciaAuth, async (req, res) => {
 
 // @route   PUT api/farmacia/entregar-visita
 // @desc    Entregar un medicamento de una VISITA PUNTUAL y registrar el costo
+// En: backend/routes/farmacia.js
 router.put('/entregar-visita', farmaciaAuth, async (req, res) => {
-        console.log('🚀🚀🚀 DENTRO DE LA RUTA /entregar-visita 🚀🚀🚀');
-    console.log('Body recibido:', req.body);
     const { id_visita, id_medicamento } = req.body;
     try {
-        // 1. Buscamos la prescripción pendiente y el costo del medicamento
-        const medInfo = await db.query(
-            `SELECT m.costo, mv.cantidad FROM medicamento_visita mv
-             JOIN medicamento m ON mv.id_medicamento = m.id_medicamento
-             WHERE mv.id_visita = $1 AND mv.id_medicamento = $2 AND mv.estado = 'pendiente'`,
+        // --- 1. SE MARCA EL MEDICAMENTO COMO ENTREGADO ---
+        const updateResult = await db.query(
+            `UPDATE medicamento_visita 
+             SET estado = 'entregado', fecha_entrega = NOW()
+             WHERE id_visita = $1 AND id_medicamento = $2 AND estado = 'pendiente'
+             RETURNING cantidad`,
             [id_visita, id_medicamento]
         );
-        if (medInfo.rows.length === 0) {
-            return res.status(404).json({ msg: 'Este medicamento no está pendiente.' });
+
+        if (updateResult.rowCount === 0) {
+            return res.status(404).json({ msg: 'Este medicamento no está pendiente o ya fue entregado.' });
         }
 
-        // 2. Calculamos el costo en este momento
-        const costo_base = parseFloat(medInfo.rows[0].costo) || 0;
-        const cantidad_num = parseInt(medInfo.rows[0].cantidad, 10) || 1;
-        const costo_cobrado = costo_base * cantidad_num;
-
-        // 3. Actualizamos el registro con el estado, la fecha Y EL COSTO
-        await db.query(
-            `UPDATE medicamento_visita SET estado = 'entregado', fecha_entrega = NOW(), costo_cobrado = $3
-             WHERE id_visita = $1 AND id_medicamento = $2`,
-            [id_visita, id_medicamento, costo_cobrado]
+        // --- 2. LÓGICA DE COBRO (AQUÍ SE USA TU SELECT) ---
+        // Se busca la información necesaria para crear el movimiento financiero
+        const infoParaCobro = await db.query(
+            `SELECT 
+                m.nombre AS nombre_medicamento, 
+                m.costo,
+                s.id_paciente
+             FROM medicamento m
+             JOIN medicamento_visita mv ON m.id_medicamento = mv.id_medicamento
+             JOIN visita_medica vm ON mv.id_visita = vm.id_visita
+             JOIN solicitud s ON vm.id_solicitud = s.id_solicitud
+             WHERE mv.id_visita = $1 AND mv.id_medicamento = $2`,
+            [id_visita, id_medicamento]
         );
+        
+        const { nombre_medicamento, costo, id_paciente } = infoParaCobro.rows[0];
+        const cantidad = parseInt(updateResult.rows[0].cantidad, 10) || 1;
+        const costo_total = (parseFloat(costo) || 0) * cantidad;
+
+        if (costo_total > 0) {
+            const infoFamiliar = await db.query(
+                'SELECT id_familiar FROM paciente_familiar WHERE id_paciente = $1 AND es_contacto_principal = TRUE',
+                [id_paciente]
+            );
+            const id_familiar = infoFamiliar.rows[0]?.id_familiar;
+
+            // --- 3. SE CREA EL REGISTRO EN LA TABLA MAESTRA ---
+            await db.query(
+                `INSERT INTO Movimiento_Financiero 
+                    (fecha, tipo, descripcion, monto, id_visita, id_familiar, estado_pago, monto_original)
+                 VALUES (NOW(), 'Cargo Medicamento', $1, $2, $3, $4, 'Pendiente', $2)`,
+                [nombre_medicamento, -costo_total, id_visita, id_familiar]
+            );
+        }
+
         res.json({ msg: 'Entrega registrada y cobro generado exitosamente.' });
-    
     } catch (err) {
         console.error("Error al registrar entrega:", err.message);
         res.status(500).json({ msg: "Error en el servidor al procesar la entrega." });
