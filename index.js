@@ -35,6 +35,7 @@ app.use('/api/cobros-medicamentos', require('./routes/cobros'));
 app.use('/api/examenes-visita', require('./routes/examenVisita'));
 app.use('/api/transacciones', require('./routes/transacciones.js'));
 app.use('/api/cuotas', require('./routes/cuotas'));
+app.use('/api/donantes', require('./routes/donantes'));
 
 const PORT = process.env.PORT || 5000;
 
