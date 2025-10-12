@@ -61,7 +61,7 @@ router.put('/entregar-visita', farmaciaAuth, async (req, res) => {
              WHERE mv.id_visita = $1 AND mv.id_medicamento = $2`,
             [id_visita, id_medicamento]
         );
-        
+
         const { nombre_medicamento, costo, id_paciente } = infoParaCobro.rows[0];
         const cantidad = parseInt(updateResult.rows[0].cantidad, 10) || 1;
         const costo_total = (parseFloat(costo) || 0) * cantidad;
@@ -75,10 +75,10 @@ router.put('/entregar-visita', farmaciaAuth, async (req, res) => {
 
             // --- 3. SE CREA EL REGISTRO EN LA TABLA MAESTRA ---
             await db.query(
-                `INSERT INTO Movimiento_Financiero 
-                    (fecha, tipo, descripcion, monto, id_visita, id_familiar, estado_pago, monto_original)
-                 VALUES (NOW(), 'Cargo Medicamento', $1, $2, $3, $4, 'Pendiente', $2)`,
-                [nombre_medicamento, -costo_total, id_visita, id_familiar]
+               `INSERT INTO Movimiento_Financiero 
+               (fecha, tipo, descripcion, monto, id_visita, id_familiar, estado_pago, monto_original, descuento_aplicado)
+                VALUES (NOW(), 'Cargo Medicamento', $1, $2, $3, $4, 'Pendiente', $2, 0)`,
+                [nombre_medicamento, costo_total, id_visita, id_familiar]
             );
         }
 
@@ -96,8 +96,10 @@ router.get('/pendientes-fijos', farmaciaAuth, async (req, res) => {
             `WITH UltimaDispensacion AS (
                 SELECT 
                     id_tratamiento_fijo, 
-                    MAX(fecha_cobro) as ultima_fecha
-                FROM Cobro_Medicamento_Fijo
+                    MAX(fecha) as ultima_fecha
+                FROM Movimiento_Financiero
+                WHERE tipo = 'Cargo Medicamento Recurrente'
+                    AND id_tratamiento_fijo IS NOT NULL
                 GROUP BY id_tratamiento_fijo
             )
             SELECT 
@@ -106,16 +108,19 @@ router.get('/pendientes-fijos', farmaciaAuth, async (req, res) => {
                 tf.nombre_medicamento,
                 tf.dosis,
                 tf.frecuencia,
-                ud.ultima_fecha
+                tf.intervalo_dias,
+                ud.ultima_fecha,
+                cb.id_paciente
             FROM Tratamiento_Fijo tf
             JOIN Condicion_Base cb ON tf.id_condicion = cb.id_condicion
             JOIN Paciente p ON cb.id_paciente = p.id_paciente
             LEFT JOIN UltimaDispensacion ud ON tf.id_tratamiento = ud.id_tratamiento_fijo
             WHERE 
-                p.activo = TRUE
+                tf.activo = TRUE
+                AND p.activo = TRUE
                 AND (ud.ultima_fecha IS NULL OR 
-                    ud.ultima_fecha <= NOW() - INTERVAL '28 days'
-                )`
+                     ud.ultima_fecha <= NOW() - (tf.intervalo_dias || ' days')::INTERVAL)
+            ORDER BY p.nombre`
         );
         res.json(pendientesFijos.rows);
     } catch (err) {
