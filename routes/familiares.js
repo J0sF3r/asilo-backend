@@ -57,14 +57,16 @@ router.get('/disponibles/:id_paciente', adminAuth, async (req, res) => {
 router.get('/:id/estado-de-cuenta', adminAuth, async (req, res) => {
     const { id: id_familiar } = req.params;
     try {
-        // --- ESTA ES LA NUEVA CONSULTA SIMPLIFICADA ---
-        // Buscamos todos los movimientos asociados directamente a este familiar.
         const query = `
             SELECT 
+                id_movimiento,
                 fecha,
                 tipo,
                 descripcion,
-                monto
+                monto,
+                monto_original,
+                descuento_aplicado,
+                estado_pago
             FROM Movimiento_Financiero
             WHERE id_familiar = $1
             ORDER BY fecha DESC;
@@ -73,12 +75,26 @@ router.get('/:id/estado-de-cuenta', adminAuth, async (req, res) => {
         const result = await db.query(query, [id_familiar]);
         const transacciones = result.rows;
 
-        // Calculamos el balance final sumando todos los montos.
-        // Los cargos son negativos y los pagos son positivos.
+        // Calculamos totales
+        const totalCargos = transacciones
+            .filter(t => t.tipo.startsWith('Cargo'))
+            .reduce((sum, t) => sum + parseFloat(t.monto_original || t.monto), 0);
+
+        const totalDescuentos = transacciones
+            .filter(t => t.tipo.startsWith('Cargo') && t.descuento_aplicado)
+            .reduce((sum, t) => {
+                const original = parseFloat(t.monto_original || t.monto);
+                const descuento = parseFloat(t.descuento_aplicado || 0);
+                return sum + (original * (descuento / 100));
+            }, 0);
+
+        // Balance final (positivo = deben pagar, negativo = tienen crédito)
         const balance = transacciones.reduce((sum, t) => sum + parseFloat(t.monto), 0);
 
         res.json({
             balance: balance.toFixed(2),
+            totalCargos: totalCargos.toFixed(2),
+            totalDescuentos: totalDescuentos.toFixed(2),
             transacciones: transacciones
         });
 
@@ -87,6 +103,7 @@ router.get('/:id/estado-de-cuenta', adminAuth, async (req, res) => {
         res.status(500).send('Error en el Servidor');
     }
 });
+
 //actualizar familiar
 router.put('/:id', adminAuth, async (req, res) => {
     const { id } = req.params;
