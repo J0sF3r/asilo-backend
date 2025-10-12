@@ -7,7 +7,7 @@ const { farmaciaAuth } = require('../middleware/auth');
 
 // @route   POST api/cobros-medicamentos
 // @desc    Registrar un cobro por Tratamiento Fijo en la tabla unificada
-router.post('/', farmaciaAuth, async (req, res) => {
+router.post('/cobros-medicamentos', farmaciaAuth, async (req, res) => {
     const { id_tratamiento_fijo, cantidad_dispensada, costo_total } = req.body;
 
     try {
