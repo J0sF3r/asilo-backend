@@ -1,13 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { adminAuth } = require('../middleware/auth');
+const { adminAuth,foundationAuth } = require('../middleware/auth');
 
 // @route   GET api/transacciones
 // @desc    Obtener el libro contable unificado
 router.get('/', adminAuth, async (req, res) => {
     try {
-        // Consulta simplificada que lee directamente de la tabla unificada
         const query = `
             SELECT 
                 mf.id_movimiento,
@@ -15,6 +14,11 @@ router.get('/', adminAuth, async (req, res) => {
                 mf.tipo,
                 mf.descripcion,
                 mf.monto,
+                mf.monto_original,
+                mf.descuento_aplicado,
+                mf.estado_pago,
+                mf.id_familiar,
+                mf.id_donante,
                 f.nombre AS nombre_familiar,
                 d.nombre AS nombre_donante
             FROM Movimiento_Financiero mf
@@ -22,14 +26,51 @@ router.get('/', adminAuth, async (req, res) => {
             LEFT JOIN Donantes d ON mf.id_donante = d.id_donante
             ORDER BY mf.fecha DESC, mf.id_movimiento DESC;
         `;
-        const transacciones = await db.query(query);
-        res.json(transacciones.rows);
+        const result = await db.query(query);
+        
+        // Calcular totales para KPIs
+        const transacciones = result.rows;
+        
+        const pendienteCobro = transacciones
+            .filter(t => t.tipo.startsWith('Cargo') && t.estado_pago === 'Pendiente')
+            .reduce((sum, t) => sum + parseFloat(t.monto), 0);
+        
+        const ingresosDelMes = transacciones
+            .filter(t => {
+                const fecha = new Date(t.fecha);
+                const ahora = new Date();
+                return fecha.getMonth() === ahora.getMonth() 
+                    && fecha.getFullYear() === ahora.getFullYear()
+                    && (t.tipo.includes('Ingreso') || t.tipo.includes('Donación') || t.tipo === 'Pago');
+            })
+            .reduce((sum, t) => sum + parseFloat(t.monto), 0);
+        
+        const gastosDelMes = transacciones
+            .filter(t => {
+                const fecha = new Date(t.fecha);
+                const ahora = new Date();
+                return fecha.getMonth() === ahora.getMonth() 
+                    && fecha.getFullYear() === ahora.getFullYear()
+                    && t.tipo.includes('Gasto');
+            })
+            .reduce((sum, t) => sum + Math.abs(parseFloat(t.monto)), 0);
+        
+        const balance = ingresosDelMes - gastosDelMes;
+        
+        res.json({
+            transacciones,
+            kpis: {
+                pendienteCobro: pendienteCobro.toFixed(2),
+                ingresosDelMes: ingresosDelMes.toFixed(2),
+                gastosDelMes: gastosDelMes.toFixed(2),
+                balance: balance.toFixed(2)
+            }
+        });
     } catch (err) {
         console.error("Error al obtener transacciones:", err.message);
         res.status(500).send('Error en el Servidor');
     }
 });
-
 // @route   POST api/transacciones
 // @desc    Registrar cualquier movimiento manual (ingreso, gasto, pago de familiar)
 router.post('/', adminAuth, async (req, res) => {
@@ -56,6 +97,72 @@ router.post('/', adminAuth, async (req, res) => {
     }
 });
 
+
+// @route   PUT api/transacciones/:id/descuento
+// @desc    Aplicar o modificar descuento a un movimiento
+router.put('/:id/descuento', foundationAuth , async (req, res) => {
+    const { id } = req.params;
+    const { descuento_aplicado } = req.body;
+
+    if (descuento_aplicado === undefined || descuento_aplicado < 0 || descuento_aplicado > 100) {
+        return res.status(400).json({ msg: 'El descuento debe ser entre 0 y 100%.' });
+    }
+
+    try {
+        // Obtener el movimiento actual
+        const movimiento = await db.query(
+            'SELECT * FROM Movimiento_Financiero WHERE id_movimiento = $1',
+            [id]
+        );
+
+        if (movimiento.rowCount === 0) {
+            return res.status(404).json({ msg: 'Movimiento no encontrado.' });
+        }
+
+        const mov = movimiento.rows[0];
+        const montoOriginal = parseFloat(mov.monto_original || mov.monto);
+        const nuevoMonto = montoOriginal - (montoOriginal * (descuento_aplicado / 100));
+
+        // Actualizar el movimiento
+        const actualizado = await db.query(
+            `UPDATE Movimiento_Financiero 
+             SET descuento_aplicado = $1, monto = $2
+             WHERE id_movimiento = $3
+             RETURNING *`,
+            [descuento_aplicado, nuevoMonto.toFixed(2), id]
+        );
+
+        res.json(actualizado.rows[0]);
+    } catch (err) {
+        console.error("Error al aplicar descuento:", err.message);
+        res.status(500).send('Error en el Servidor');
+    }
+});
+
+// @route   PUT api/transacciones/:id/pagar
+// @desc    Marcar un movimiento como pagado
+router.put('/:id/pagar', adminAuth, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const actualizado = await db.query(
+            `UPDATE Movimiento_Financiero 
+             SET estado_pago = 'Pagado'
+             WHERE id_movimiento = $1
+             RETURNING *`,
+            [id]
+        );
+
+        if (actualizado.rowCount === 0) {
+            return res.status(404).json({ msg: 'Movimiento no encontrado.' });
+        }
+
+        res.json(actualizado.rows[0]);
+    } catch (err) {
+        console.error("Error al marcar como pagado:", err.message);
+        res.status(500).send('Error en el Servidor');
+    }
+});
 // La ruta POST /pago ya no es necesaria, fue unificada en la ruta POST / de arriba.
 
 module.exports = router;
