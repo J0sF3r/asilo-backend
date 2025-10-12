@@ -7,7 +7,7 @@ const { enviarCorreoNotificacion } = require('../utils/emailService');
 
 // @route   GET api/solicitudes
 // @desc    Obtener todas las solicitudes generadas por el usuario (Acción de Visualización)
-router.get('/', solicitudesViewAuth,  async (req, res) => {
+router.get('/', solicitudesViewAuth, async (req, res) => {
     try {
         const solicitudes = await db.query(
             `SELECT 
@@ -49,7 +49,7 @@ router.post('/', adminAuth, async (req, res) => {
 router.put('/:id/aprobar', generalAuth, async (req, res) => {
     const { id } = req.params;
     // Ahora también recibimos el diagnóstico del Médico General
-    const { especialidad_requerida, id_enfermero, diagnostico_general } = req.body; 
+    const { especialidad_requerida, id_enfermero, diagnostico_general } = req.body;
 
     try {
         const solicitudAprobada = await db.query(
@@ -70,12 +70,12 @@ router.put('/:id/aprobar', generalAuth, async (req, res) => {
 });
 
 router.post('/:id/programar', foundationAuth, async (req, res) => {
-        const { id: id_solicitud } = req.params;
-    
+    const { id: id_solicitud } = req.params;
+
     const { id_medico_especialista, fecha_visita, lugar, costo_consulta, descuento_porcentaje } = req.body;
 
     try {
-        c// --- 1. CREAMOS LA VISITA (YA NO GUARDA COSTOS) ---
+        // --- 1. CREAMOS LA VISITA (YA NO GUARDA COSTOS) ---
         const nuevaVisita = await db.query(
             `INSERT INTO visita_medica (id_solicitud, fecha_visita, lugar, estado)
              VALUES ($1, $2, $3, 'programada') RETURNING *`,
@@ -86,14 +86,14 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
         // --- 2. ACTUALIZAMOS LA SOLICITUD (SIN CAMBIOS) ---
         const solicitudActualizada = await db.query(
             `UPDATE solicitud SET id_medico_especialista = $1, estado = 'programada'
-             WHERE id_solicitud = $2 AND estado = 'aprobada' RETURNING *`, 
+             WHERE id_solicitud = $2 AND estado = 'aprobada' RETURNING *`,
             [id_medico_especialista, id_solicitud]
         );
-        
+
         if (solicitudActualizada.rowCount === 0) {
             return res.status(404).json({ msg: 'Solicitud no encontrada o no está en estado "aprobada".' });
         }
-         // --- 3. LÓGICA DE COBRO EN LA NUEVA TABLA ---
+        // --- 3. LÓGICA DE COBRO EN LA NUEVA TABLA ---
         const costoBase = parseFloat(costo_consulta) || 0;
         const descuento = parseFloat(descuento_porcentaje) || 0;
         const montoFinal = costoBase - (costoBase * (descuento / 100));
@@ -102,10 +102,10 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
             // Buscamos el id_familiar y el nombre del paciente para la descripción
             const infoPaciente = await db.query(
                 `SELECT s.id_paciente, p.nombre AS nombre_paciente, pf.id_familiar 
-                 FROM solicitud s
-                 JOIN paciente p ON s.id_paciente = p.id_paciente
-                 LEFT JOIN paciente_familiar pf ON p.id_paciente = pf.id_paciente AND pf.es_contacto_principal = TRUE
-                 WHERE s.id_solicitud = $1`,
+         FROM solicitud s
+         JOIN paciente p ON s.id_paciente = p.id_paciente
+         LEFT JOIN paciente_familiar pf ON p.id_paciente = pf.id_paciente AND pf.es_contacto_principal = TRUE
+         WHERE s.id_solicitud = $1`,
                 [id_solicitud]
             );
 
@@ -114,9 +114,9 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
 
             await db.query(
                 `INSERT INTO Movimiento_Financiero 
-                    (fecha, tipo, descripcion, monto, id_visita, id_familiar, estado_pago, monto_original, descuento_aplicado)
-                 VALUES ($1, 'Cargo Consulta', $2, $3, $4, $5, 'Pendiente', $6, $7)`,
-                [fecha_visita, descripcion, -montoFinal, id_visita, id_familiar, -costoBase, descuento]
+            (fecha, tipo, descripcion, monto, id_visita, id_familiar, estado_pago, monto_original, descuento_aplicado)
+         VALUES ($1, 'Cargo Consulta', $2, $3, $4, $5, 'Pendiente', $6, $7)`,
+                [fecha_visita, descripcion, montoFinal, id_visita, id_familiar, costoBase, descuento]
             );
         }
 
@@ -153,7 +153,7 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
         } else {
             console.log(`Advertencia: No se encontró un CONTACTO PRINCIPAL para la solicitud ${id_solicitud}. No se envió correo.`);
         }
-        
+
         res.status(201).json(nuevaVisita.rows[0]);
     } catch (err) {
         console.error("Error al programar la solicitud:", err.message);
