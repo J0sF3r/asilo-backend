@@ -128,4 +128,21 @@ router.post('/', adminAuth, async (req, res) => {
     }
 });
 
+// @desc    Registrar un pago de un familiar
+router.post('/pago', adminAuth, async (req, res) => {
+    const { id_familiar, monto, descripcion } = req.body;
+    try {
+        const nuevoPago = await db.query(
+            `INSERT INTO Transacciones (fecha, tipo, descripcion, monto, id_familiar)
+             VALUES (NOW(), 'Pago de Familiar', $1, $2, $3) RETURNING *`,
+            [descripcion, monto, id_familiar]
+        );
+        res.status(201).json(nuevoPago.rows[0]);
+    } catch (err) {
+        console.error("Error al registrar el pago:", err.message);
+        res.status(500).send('Error en el Servidor');
+    }
+});
+
+
 module.exports = router;
