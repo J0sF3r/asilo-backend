@@ -110,10 +110,12 @@ router.get('/pendientes-fijos', farmaciaAuth, async (req, res) => {
                 tf.frecuencia,
                 tf.intervalo_dias,
                 ud.ultima_fecha,
-                cb.id_paciente
+                cb.id_paciente,
+                m.costo AS costo_unitario
             FROM Tratamiento_Fijo tf
             JOIN Condicion_Base cb ON tf.id_condicion = cb.id_condicion
             JOIN Paciente p ON cb.id_paciente = p.id_paciente
+            LEFT JOIN Medicamento m ON tf.id_medicamento = m.id_medicamento
             LEFT JOIN UltimaDispensacion ud ON tf.id_tratamiento = ud.id_tratamiento_fijo
             WHERE 
                 tf.activo = TRUE
