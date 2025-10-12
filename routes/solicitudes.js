@@ -6,7 +6,7 @@ const { adminAuth, generalAuth, foundationAuth, solicitudesViewAuth } = require(
 const { enviarCorreoNotificacion } = require('../utils/emailService');
 
 // @route   GET api/solicitudes
-// @desc    Obtener todas las solicitudes
+// @desc    Obtener todas las solicitudes generadas por el usuario (Acción de Visualización)
 router.get('/', solicitudesViewAuth,  async (req, res) => {
     try {
         const solicitudes = await db.query(
@@ -60,7 +60,7 @@ router.put('/:id/aprobar', generalAuth, async (req, res) => {
         );
 
         if (solicitudAprobada.rows.length === 0) {
-            return res.status(404).json({ msg: 'Solicitud no encontrada o ya no está pendiente.' });
+            return res.status(404).json({ msg: 'La Solicitud no encontrada o ya no está pendiente.' });
         }
         res.json(solicitudAprobada.rows[0]);
     } catch (err) {
