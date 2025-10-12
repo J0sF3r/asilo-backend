@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { adminAuth,foundationAuth } = require('../middleware/auth');
+const { adminAuth, foundationAuth } = require('../middleware/auth');
 
 // @route   GET api/transacciones
 // @desc    Obtener el libro contable unificado
-router.get('/', adminAuth, async (req, res) => {
+router.get('/', foundationAuth, async (req, res) => {
     try {
         const query = `
             SELECT 
