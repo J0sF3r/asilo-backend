@@ -46,8 +46,8 @@ router.post('/visitas/:id/examenes', generalViewAuth, async (req, res) => {
 
 // @route   PUT api/examenes_visita/:id_visita/:id_examen
 // @desc    Actualizar el resultado de un examen en una visita
-router.put('/:id_visita/:id_examen', labAuth, async (req, res) => { // Usamos labAuth o el permiso que corresponda
-const { id_visita, id_examen } = req.params;
+router.put('/:id_visita/:id_examen', labAuth, async (req, res) => {
+    const { id_visita, id_examen } = req.params;
     const { resultado } = req.body;
 
     try {
@@ -62,6 +62,8 @@ const { id_visita, id_examen } = req.params;
         if (updated.rowCount === 0) {
             return res.status(404).json({ msg: 'No se encontró el examen asignado a esta visita.' });
         }
+
+        // --- 2. OBTENEMOS INFO PARA EL MOVIMIENTO FINANCIERO ---
         const infoParaCobro = await db.query(
             `SELECT 
                 e.costo, e.nombre_examen, s.id_paciente
@@ -75,6 +77,7 @@ const { id_visita, id_examen } = req.params;
         
         const { costo, nombre_examen, id_paciente } = infoParaCobro.rows[0];
 
+        // --- 3. CREAMOS EL MOVIMIENTO FINANCIERO ---
         if (costo > 0) {
             const infoFamiliar = await db.query(
                 'SELECT id_familiar FROM paciente_familiar WHERE id_paciente = $1 AND es_contacto_principal = TRUE',
@@ -83,12 +86,14 @@ const { id_visita, id_examen } = req.params;
             const id_familiar = infoFamiliar.rows[0]?.id_familiar;
 
             await db.query(
-                `INSERT INTO Movimiento_Financiero (fecha, tipo, descripcion, monto, id_visita, id_familiar, estado_pago, monto_original)
-                 VALUES (NOW(), 'Cargo Examen', $1, $2, $3, $4, 'Pendiente', $2)`,
-                [nombre_examen, -costo, id_visita, id_familiar]
+                `INSERT INTO Movimiento_Financiero 
+                    (fecha, tipo, descripcion, monto, id_visita, id_familiar, estado_pago, monto_original, descuento_aplicado)
+                 VALUES (NOW(), 'Cargo Examen', $1, $2, $3, $4, 'Pendiente', $2, 0)`,
+                [nombre_examen, costo, id_visita, id_familiar]
             );
         }
-            // Contamos cuántos exámenes de esta visita AÚN están pendientes
+
+        // --- 4. VERIFICAMOS SI TODOS LOS EXÁMENES ESTÁN COMPLETOS ---
         const pendientesQuery = `
             SELECT COUNT(*) 
             FROM examen_visita 
@@ -97,9 +102,7 @@ const { id_visita, id_examen } = req.params;
         const pendientesResult = await db.query(pendientesQuery, [id_visita]);
         const numPendientes = parseInt(pendientesResult.rows[0].count, 10);
 
-        // Si ya no quedan exámenes pendientes para esta visita...
         if (numPendientes === 0) {
-            // ...actualizamos el estado de la visita a "resultados_listos"
             await db.query(
                 "UPDATE visita_medica SET estado = 'resultados_listos' WHERE id_visita = $1",
                 [id_visita]
@@ -112,7 +115,6 @@ const { id_visita, id_examen } = req.params;
         res.status(500).send('Error en el Servidor');
     }
 });
-
 // @route   DELETE api/visitas/:id/examenes/:id_examen
 // @desc    Quitar un examen de una visita
 router.delete('/visitas/:id/examenes/:id_examen', adminAuth, async (req, res) => {
