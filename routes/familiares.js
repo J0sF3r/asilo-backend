@@ -75,21 +75,27 @@ router.get('/:id/estado-de-cuenta', adminAuth, async (req, res) => {
         const result = await db.query(query, [id_familiar]);
         const transacciones = result.rows;
 
-        // Calculamos totales
-        const totalCargos = transacciones
-            .filter(t => t.tipo.startsWith('Cargo'))
-            .reduce((sum, t) => sum + parseFloat(t.monto_original || t.monto), 0);
+        const cargos = transacciones.filter(t => t.tipo.startsWith('Cargo') || t.tipo === 'Cuota Mensual');
+        
+        const totalCargos = cargos.reduce((sum, t) => {
+            return sum + parseFloat(t.monto_original || t.monto);
+        }, 0);
 
-        const totalDescuentos = transacciones
-            .filter(t => t.tipo.startsWith('Cargo') && t.descuento_aplicado)
+        const totalDescuentos = cargos
+            .filter(t => t.descuento_aplicado)
             .reduce((sum, t) => {
                 const original = parseFloat(t.monto_original || t.monto);
                 const descuento = parseFloat(t.descuento_aplicado || 0);
                 return sum + (original * (descuento / 100));
             }, 0);
 
-        // Balance final (positivo = deben pagar, negativo = tienen crédito)
-        const balance = transacciones.reduce((sum, t) => sum + parseFloat(t.monto), 0);
+
+        const balance = transacciones
+            .filter(t => {
+                return (t.tipo.startsWith('Cargo') || t.tipo === 'Cuota Mensual') && 
+                       t.estado_pago === 'Pendiente';
+            })
+            .reduce((sum, t) => sum + parseFloat(t.monto), 0);
 
         res.json({
             balance: balance.toFixed(2),
