@@ -5,28 +5,40 @@ const router = express.Router();
 const db = require('../db');
 const { diagnosticoAuth } = require('../middleware/auth'); // Usamos el mismo middleware
 
-// @route   POST api/tratamientos/condicion/:id
 // @desc    Añadir un nuevo tratamiento fijo a una condición
-// @access  Private (Admin/Medicos)
 router.post('/condicion/:id', diagnosticoAuth, async (req, res) => {
     const { id: id_condicion } = req.params;
-    const { nombre_medicamento, dosis, frecuencia, fecha_inicio } = req.body;
+    const { id_medicamento, nombre_medicamento, dosis, frecuencia, intervalo_dias } = req.body;
 
     try {
+        // Si se proporciona id_medicamento, obtener el nombre desde la tabla Medicamento
+        let nombreFinal = nombre_medicamento;
+        if (id_medicamento) {
+            const medicamento = await db.query(
+                'SELECT nombre FROM Medicamento WHERE id_medicamento = $1',
+                [id_medicamento]
+            );
+            if (medicamento.rowCount > 0) {
+                nombreFinal = medicamento.rows[0].nombre;
+            }
+        }
+
         const nuevoTratamiento = await db.query(
-            `INSERT INTO Tratamiento_Fijo (id_condicion, nombre_medicamento, dosis, frecuencia, fecha_inicio)
-             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-            [id_condicion, nombre_medicamento, dosis, frecuencia, fecha_inicio]
+            `INSERT INTO Tratamiento_Fijo 
+                (id_condicion, id_medicamento, nombre_medicamento, dosis, frecuencia, intervalo_dias, activo, fecha_inicio)
+             VALUES ($1, $2, $3, $4, $5, $6, TRUE, NOW()) 
+             RETURNING *`,
+            [id_condicion, id_medicamento || null, nombreFinal, dosis, frecuencia, intervalo_dias || 28]
         );
+        
         res.status(201).json(nuevoTratamiento.rows[0]);
     } catch (err) {
-        console.error(err.message);
+        console.error("Error al crear tratamiento fijo:", err.message);
         res.status(500).send('Error en el Servidor');
     }
 });
-// @route   PUT api/tratamientos/:id
+
 // @desc    Actualizar un tratamiento fijo existente
-// @access  Private (Admin/Medicos)
 router.put('/:id', diagnosticoAuth, async (req, res) => {
     const { id: id_tratamiento } = req.params;
     const { nombre_medicamento, dosis, frecuencia, fecha_inicio } = req.body;

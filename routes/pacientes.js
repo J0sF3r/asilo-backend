@@ -4,9 +4,7 @@ const router = express.Router();
 const db = require('../db');
 const { adminAuth, medicoAuth, diagnosticoAuth, generalAuth } = require('../middleware/auth'); // Usaremos adminAuth para proteger las rutas
 
-// @route   POST api/pacientes
 // @desc    Registrar un nuevo paciente
-// @access  Private (Admin)
 router.post('/', adminAuth, async (req, res) => {
     const { nombre, fecha_nacimiento, sexo, direccion, telefono, email, fecha_ingreso } = req.body;
     try {
@@ -25,7 +23,7 @@ router.post('/', adminAuth, async (req, res) => {
 router.post('/:id/familiares', generalAuth, async (req, res) => {
     try {
         const { id: id_paciente } = req.params;
-        const { id_familiar } = req.body; // Recibiremos el ID del familiar a asignar
+        const { id_familiar } = req.body; 
 
         if (!id_familiar) {
             return res.status(400).json({ msg: 'Se requiere el ID del familiar' });
@@ -37,8 +35,8 @@ router.post('/:id/familiares', generalAuth, async (req, res) => {
         );
         res.status(201).json(newLink.rows[0]);
     } catch (err) {
-        // Manejo de error si el vínculo ya existe
-        if (err.code === '23505') { // Código de error para violación de llave única
+ 
+        if (err.code === '23505') { 
             return res.status(400).json({ msg: 'Este familiar ya está asignado a este paciente.' });
         }
         console.error(err.message);
@@ -46,15 +44,9 @@ router.post('/:id/familiares', generalAuth, async (req, res) => {
     }
 });
 
-
-
-
-// @route   GET api/pacientes
 // @desc    Obtener todos los pacientes
-// @access  Private (Admin)
 router.get('/', generalAuth, async (req, res) => {
     try {
-        // <-- CAMBIO: Se añade "WHERE activo = TRUE" para obtener solo los pacientes activos.
         const pacientes = await db.query('SELECT * FROM Paciente WHERE activo = TRUE ORDER BY nombre ASC');
         res.json(pacientes.rows);
     } catch (err) {
@@ -66,7 +58,6 @@ router.get('/', generalAuth, async (req, res) => {
 router.get('/:id', generalAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        // <-- CAMBIO: Se añade "AND activo = TRUE" para no encontrar pacientes inactivos.
         const paciente = await db.query('SELECT * FROM Paciente WHERE id_paciente = $1 AND activo = TRUE', [id]);
 
         if (paciente.rows.length === 0) {
@@ -79,7 +70,6 @@ router.get('/:id', generalAuth, async (req, res) => {
     }
 });
 
-//para obtener los familiares de un paciente
 router.get('/:id/familiares', generalAuth, async (req, res) => {
     try {
         const { id } = req.params;
@@ -101,7 +91,6 @@ router.get('/:id/familiares', generalAuth, async (req, res) => {
 router.get('/:id/solicitudes', generalAuth, async (req, res) => {
     const { id } = req.params;
     try {
-        // Obtener todas las solicitudes del paciente
         const solicitudesRes = await db.query(
             `SELECT s.*, mg.nombre as nombre_medico_general, me.nombre as nombre_medico_especialista
              FROM solicitud s
@@ -111,7 +100,6 @@ router.get('/:id/solicitudes', generalAuth, async (req, res) => {
         );
         const solicitudes = solicitudesRes.rows;
 
-        // Para cada solicitud, buscar su visita y exámenes asociados
         for (const solicitud of solicitudes) {
             const visitaRes = await db.query(
                 `SELECT * FROM visita_medica WHERE id_solicitud = $1 LIMIT 1`,
@@ -171,9 +159,7 @@ router.delete('/:id_paciente/familiares/:id_familiar', adminAuth, async (req, re
     }
 });
 
-// @route   GET /api/pacientes/:id/historial
 // @desc    Obtener el historial médico completo de un paciente
-// @access  Médicos
 router.get('/:id/historial', medicoAuth, async (req, res) => {
     const { id: id_paciente } = req.params;
 
@@ -194,9 +180,8 @@ router.get('/:id/historial', medicoAuth, async (req, res) => {
         const visitasResult = await db.query(visitasQuery, [id_paciente]);
         const visitas = visitasResult.rows;
 
-        // --- 2. PARA CADA VISITA, BUSCAR EXÁMENES Y MEDICAMENTOS ---
         for (const visita of visitas) {
-            // Buscamos los exámenes de esta visita
+   
             const examenesRes = await db.query(
                 `SELECT e.nombre_examen, ev.resultado FROM examen_visita ev 
                  JOIN examen e ON ev.id_examen = e.id_examen WHERE ev.id_visita = $1`,
@@ -204,7 +189,6 @@ router.get('/:id/historial', medicoAuth, async (req, res) => {
             );
             visita.examenes = examenesRes.rows;
 
-            // Buscamos los medicamentos recetados en esta visita
             const medicamentosRes = await db.query(
                `SELECT m.nombre, mv.cantidad, mv.tiempo_aplicacion 
                  FROM medicamento_visita mv
@@ -215,14 +199,13 @@ router.get('/:id/historial', medicoAuth, async (req, res) => {
             visita.medicamentos = medicamentosRes.rows;
         }
 
-        // --- 3. OBTENER CONDICIONES DE BASE (sin cambios) ---
         const condicionesResult = await db.query('SELECT * FROM Condicion_Base WHERE id_paciente = $1', [id_paciente]);
         const condiciones = condicionesResult.rows;
         for (const condicion of condiciones) {
             const tratamientosRes = await db.query('SELECT * FROM Tratamiento_Fijo WHERE id_condicion = $1', [condicion.id_condicion]);
             condicion.tratamientos = tratamientosRes.rows;
         }
-        // --- 4. ENVIAR TODO JUNTO ---
+
         res.json({
             visitas: visitas,
             condiciones: condiciones
@@ -234,7 +217,6 @@ router.get('/:id/historial', medicoAuth, async (req, res) => {
 });
 
 // @desc    Actualizar un paciente existente
-
 router.put('/:id', adminAuth, async (req, res) => {
     const { id } = req.params;
     const { nombre, fecha_nacimiento, sexo, direccion, telefono, email } = req.body;
@@ -262,7 +244,6 @@ router.put('/:id', adminAuth, async (req, res) => {
 router.delete('/:id', adminAuth, async (req, res) => {
     const { id } = req.params;
     try {
-        // <-- CAMBIO: En lugar de DELETE, ahora hacemos un UPDATE para poner activo = FALSE.
         const deactivatePaciente = await db.query(
             'UPDATE Paciente SET activo = FALSE WHERE id_paciente = $1 RETURNING *',
             [id]
@@ -279,9 +260,7 @@ router.delete('/:id', adminAuth, async (req, res) => {
     }
 });
 
-// @route   GET api/pacientes/:id/condiciones
 // @desc    Obtener todas las condiciones de base de un paciente
-// @access  Private (Admin/Medico)
 router.get('/:id/condiciones', generalAuth, async (req, res) => {
     const { id } = req.params;
     try {
@@ -291,13 +270,11 @@ router.get('/:id/condiciones', generalAuth, async (req, res) => {
         );
         const condiciones = condicionesRes.rows;
 
-        // Para cada condición, buscar sus tratamientos fijos
         for (const condicion of condiciones) {
             const tratamientosRes = await db.query(
                 'SELECT * FROM Tratamiento_Fijo WHERE id_condicion = $1 ORDER BY fecha_inicio ASC',
                 [condicion.id_condicion]
             );
-            // Añadimos un array de tratamientos a cada objeto de condición
             condicion.tratamientos = tratamientosRes.rows;
         }
 
@@ -308,9 +285,8 @@ router.get('/:id/condiciones', generalAuth, async (req, res) => {
     }
 });
 
-// @route   POST api/pacientes/:id/condiciones
+
 // @desc    Añadir una nueva condición de base a un paciente
-// @access  Private (Admin)
 router.post('/:id/condiciones', diagnosticoAuth, async (req, res) => {
     const { id: id_paciente } = req.params;
     const { nombre_condicion, fecha_diagnostico, observaciones } = req.body;
@@ -328,9 +304,7 @@ router.post('/:id/condiciones', diagnosticoAuth, async (req, res) => {
     }
 });
 
-// @route   PUT /api/pacientes/:id/familiares/:id_familiar/principal
 // @desc    Designar a un familiar como el contacto principal
-// @access  Private (Admin)
 router.put('/:id/familiares/:id_familiar/principal', adminAuth, async (req, res) => {
     const { id: id_paciente, id_familiar } = req.params;
 
@@ -341,7 +315,6 @@ router.put('/:id/familiares/:id_familiar/principal', adminAuth, async (req, res)
             [id_paciente]
         );
 
-        // Paso B: Poner al familiar SELECCIONADO como SÍ principal
         const result = await db.query(
             'UPDATE Paciente_Familiar SET es_contacto_principal = TRUE WHERE id_paciente = $1 AND id_familiar = $2 RETURNING *',
             [id_paciente, id_familiar]
