@@ -23,7 +23,7 @@ router.post('/', adminAuth, async (req, res) => {
 router.post('/:id/familiares', generalAuth, async (req, res) => {
     try {
         const { id: id_paciente } = req.params;
-        const { id_familiar } = req.body; 
+        const { id_familiar } = req.body;
 
         if (!id_familiar) {
             return res.status(400).json({ msg: 'Se requiere el ID del familiar' });
@@ -35,8 +35,8 @@ router.post('/:id/familiares', generalAuth, async (req, res) => {
         );
         res.status(201).json(newLink.rows[0]);
     } catch (err) {
- 
-        if (err.code === '23505') { 
+
+        if (err.code === '23505') {
             return res.status(400).json({ msg: 'Este familiar ya está asignado a este paciente.' });
         }
         console.error(err.message);
@@ -47,7 +47,20 @@ router.post('/:id/familiares', generalAuth, async (req, res) => {
 // @desc    Obtener todos los pacientes
 router.get('/', generalAuth, async (req, res) => {
     try {
-        const pacientes = await db.query('SELECT * FROM Paciente WHERE activo = TRUE ORDER BY nombre ASC');
+        const pacientes = await db.query(
+        `SELECT 
+         id_paciente,
+         nombre,
+         fecha_nacimiento,
+         DATE_PART('year', AGE(fecha_nacimiento)) AS edad, -- ← AGREGAR ESTO
+         sexo,
+         telefono,
+         direccion,
+         email,
+         activo
+         FROM Paciente
+          WHERE activo = TRUE
+         ORDER BY nombre`,);
         res.json(pacientes.rows);
     } catch (err) {
         console.error(err.message);
@@ -117,8 +130,8 @@ router.get('/:id/solicitudes', generalAuth, async (req, res) => {
                 );
                 visita.examenes = examenesRes.rows;
                 solicitud.visita = visita;
-                
-                 const medicamentosRes = await db.query(
+
+                const medicamentosRes = await db.query(
                     `SELECT m.nombre, mv.cantidad, mv.tiempo_aplicacion, mv.estado
                      FROM medicamento_visita mv
                      JOIN medicamento m ON mv.id_medicamento = m.id_medicamento
@@ -126,7 +139,7 @@ router.get('/:id/solicitudes', generalAuth, async (req, res) => {
                     [visita.id_visita]
                 );
                 visita.medicamentos = medicamentosRes.rows;
-                
+
                 solicitud.visita = visita;
             }
         }
@@ -181,7 +194,7 @@ router.get('/:id/historial', medicoAuth, async (req, res) => {
         const visitas = visitasResult.rows;
 
         for (const visita of visitas) {
-   
+
             const examenesRes = await db.query(
                 `SELECT e.nombre_examen, ev.resultado FROM examen_visita ev 
                  JOIN examen e ON ev.id_examen = e.id_examen WHERE ev.id_visita = $1`,
@@ -190,7 +203,7 @@ router.get('/:id/historial', medicoAuth, async (req, res) => {
             visita.examenes = examenesRes.rows;
 
             const medicamentosRes = await db.query(
-               `SELECT m.nombre, mv.cantidad, mv.tiempo_aplicacion 
+                `SELECT m.nombre, mv.cantidad, mv.tiempo_aplicacion 
                  FROM medicamento_visita mv
                  JOIN medicamento m ON mv.id_medicamento = m.id_medicamento 
                  WHERE mv.id_visita = $1`,
@@ -323,7 +336,7 @@ router.put('/:id/familiares/:id_familiar/principal', adminAuth, async (req, res)
         if (result.rowCount === 0) {
             return res.status(404).json({ msg: 'La asignación entre paciente y familiar no fue encontrada.' });
         }
-        
+
         res.json({ msg: 'Contacto principal actualizado exitosamente.', data: result.rows[0] });
 
     } catch (err) {
