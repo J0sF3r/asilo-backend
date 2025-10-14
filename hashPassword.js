@@ -1,7 +1,7 @@
 // backend/hashPassword.js
 const bcrypt = require('bcryptjs');
 
-const password = 'pruebas'; // <-- Pon aquí la contraseña que quieres usar
+const password = 'pruebas';
 
 bcrypt.genSalt(10, (err, salt) => {
     bcrypt.hash(password, salt, (err, hash) => {
