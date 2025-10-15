@@ -27,36 +27,36 @@ router.get('/', foundationAuth, async (req, res) => {
             ORDER BY mf.fecha DESC, mf.id_movimiento DESC;
         `;
         const result = await db.query(query);
-        
+
         // Calcular totales para KPIs
         const transacciones = result.rows;
-        
+
         const pendienteCobro = transacciones
             .filter(t => t.tipo.startsWith('Cargo') && t.estado_pago === 'Pendiente')
             .reduce((sum, t) => sum + parseFloat(t.monto), 0);
-        
+
         const ingresosDelMes = transacciones
             .filter(t => {
                 const fecha = new Date(t.fecha);
                 const ahora = new Date();
-                return fecha.getMonth() === ahora.getMonth() 
+                return fecha.getMonth() === ahora.getMonth()
                     && fecha.getFullYear() === ahora.getFullYear()
                     && (t.tipo.includes('Ingreso') || t.tipo.includes('Donación') || t.tipo === 'Pago');
             })
             .reduce((sum, t) => sum + parseFloat(t.monto), 0);
-        
+
         const gastosDelMes = transacciones
             .filter(t => {
                 const fecha = new Date(t.fecha);
                 const ahora = new Date();
-                return fecha.getMonth() === ahora.getMonth() 
+                return fecha.getMonth() === ahora.getMonth()
                     && fecha.getFullYear() === ahora.getFullYear()
-                    && t.tipo.includes('Gasto');
+                    && (t.tipo.includes('Gasto') || t.tipo === 'Pago de Servicios');  // ← CORREGIDO
             })
             .reduce((sum, t) => sum + Math.abs(parseFloat(t.monto)), 0);
-        
+
         const balance = ingresosDelMes - gastosDelMes;
-        
+
         res.json({
             transacciones,
             kpis: {
@@ -83,7 +83,7 @@ router.post('/', adminAuth, async (req, res) => {
     try {
         // Los gastos siempre se guardan como negativos, el resto como positivos
         const montoFinal = tipo.toLowerCase().includes('gasto') ? -Math.abs(monto) : Math.abs(monto);
-        
+
         // La consulta ahora es más simple
         const nuevaTransaccion = await db.query(
             `INSERT INTO Movimiento_Financiero (fecha, tipo, descripcion, monto, id_familiar, id_donante)
@@ -100,7 +100,7 @@ router.post('/', adminAuth, async (req, res) => {
 
 // @route   PUT api/transacciones/:id/descuento
 // @desc    Aplicar o modificar descuento a un movimiento
-router.put('/:id/descuento', foundationAuth , async (req, res) => {
+router.put('/:id/descuento', foundationAuth, async (req, res) => {
     const { id } = req.params;
     const { descuento_aplicado } = req.body;
 

@@ -25,30 +25,47 @@ router.post('/', adminAuth, async (req, res) => {
     }
 });
 
-// Obtener todas las visitas médicas programadas
+// Obtener todas las visitas médicas programadas (con filtro opcional por estado)
 router.get('/', foundationAuth, async (req, res) => {
     try {
+        const { estado } = req.query; // ✅ Leer el parámetro de filtro
+        
         let queryText = `
-                SELECT 
+            SELECT 
                 vm.id_visita,
                 vm.id_solicitud,
                 vm.fecha_visita,
                 vm.lugar,
                 vm.estado,
+                vm.diagnostico,
+                vm.observaciones_medicas,
+                vm.proxima_cita,
+                p.id_paciente,
                 p.nombre AS nombre_paciente, 
                 me.nombre AS nombre_medico_especialista,
-                en.nombre AS nombre_enfermero -- <-- Añadido
+                en.nombre AS nombre_enfermero
             FROM visita_medica vm
             JOIN solicitud s ON vm.id_solicitud = s.id_solicitud
             JOIN paciente p ON s.id_paciente = p.id_paciente
             LEFT JOIN medico me ON s.id_medico_especialista = me.id_medico
             LEFT JOIN enfermero en ON s.id_enfermero = en.id_enfermero
+            WHERE 1=1
         `;
         const queryParams = [];
+        let paramIndex = 1;
 
+        // ✅ Filtro por rol de Médico Especialista
         if (req.user.nombre_rol === 'Medico Especialista') {
-            queryText += ' WHERE s.id_medico_especialista = $1';
+            queryText += ` AND s.id_medico_especialista = $${paramIndex}`;
             queryParams.push(req.user.id_medico);
+            paramIndex++;
+        }
+
+        // ✅ Filtro por estado (si se proporciona)
+        if (estado) {
+            queryText += ` AND vm.estado = $${paramIndex}`;
+            queryParams.push(estado);
+            paramIndex++;
         }
 
         queryText += ' ORDER BY vm.fecha_visita DESC';
@@ -61,7 +78,6 @@ router.get('/', foundationAuth, async (req, res) => {
         res.status(500).send('Error en el servidor');
     }
 });
-
 
 // OBTENER CITAS PROGRAMADAS PARA EL MÉDICO AUTENTICADO
 // En backend/routes/visitas.js
