@@ -4,12 +4,20 @@ const db = require('../db');
 const { foundationAuth } = require('../middleware/auth');
 
 // @desc    Reporte de cobros por familiar
+// @desc    Reporte de cobros por familiar
 router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
     const { id_familiar } = req.params;
     const { fechaInicio, fechaFin } = req.query;
 
+    if (!fechaInicio || !fechaFin) {
+        return res.status(400).json({ msg: 'Fechas de inicio y fin son requeridas' });
+    }
+
     try {
-        // Obtener transacciones del familiar en el rango de fechas
+        // ✅ CORREGIDO: Ajustar fechas para incluir todo el día
+        const fechaInicioAjustada = `${fechaInicio} 00:00:00`;
+        const fechaFinAjustada = `${fechaFin} 23:59:59`;
+
         const query = `
             SELECT 
                 mf.fecha,
@@ -21,13 +29,13 @@ router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
                 mf.estado_pago
             FROM Movimiento_Financiero mf
             WHERE mf.id_familiar = $1
-              AND mf.fecha >= $2
-              AND mf.fecha <= $3
+              AND mf.fecha >= $2::timestamp
+              AND mf.fecha <= $3::timestamp
               AND (mf.tipo LIKE 'Cargo%' OR mf.tipo = 'Cuota Mensual')
             ORDER BY mf.fecha DESC
         `;
         
-        const result = await db.query(query, [id_familiar, fechaInicio, fechaFin]);
+        const result = await db.query(query, [id_familiar, fechaInicioAjustada, fechaFinAjustada]);
         const transacciones = result.rows;
 
         // Calcular totales
@@ -61,7 +69,7 @@ router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
 
     } catch (err) {
         console.error('Error al generar reporte de cobros:', err.message);
-        res.status(500).send('Error en el Servidor');
+        res.status(500).json({ msg: 'Error al generar reporte', error: err.message });
     }
 });
 
