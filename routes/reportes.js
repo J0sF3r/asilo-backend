@@ -7,17 +7,14 @@ const { foundationAuth } = require('../middleware/auth');
 // @desc    Reporte de cobros por familiar
 router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
     const { id_familiar } = req.params;
-    const { fechaInicio, fechaFin } = req.query;
+    let { fechaInicio, fechaFin } = req.query;
 
     if (!fechaInicio || !fechaFin) {
         return res.status(400).json({ msg: 'Fechas de inicio y fin son requeridas' });
     }
 
     try {
-        // ✅ CORREGIDO: Ajustar fechas para incluir todo el día
-        const fechaInicioAjustada = `${fechaInicio} 00:00:00`;
-        const fechaFinAjustada = `${fechaFin} 23:59:59`;
-
+        // ✅ CORREGIDO: Usar DATE() para comparar solo fechas, sin horas
         const query = `
             SELECT 
                 mf.fecha,
@@ -29,14 +26,15 @@ router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
                 mf.estado_pago
             FROM Movimiento_Financiero mf
             WHERE mf.id_familiar = $1
-              AND mf.fecha >= $2::timestamp
-              AND mf.fecha <= $3::timestamp
+              AND DATE(mf.fecha) >= $2::date
+              AND DATE(mf.fecha) <= $3::date
               AND (mf.tipo LIKE 'Cargo%' OR mf.tipo = 'Cuota Mensual')
             ORDER BY mf.fecha DESC
         `;
         
-        const result = await db.query(query, [id_familiar, fechaInicioAjustada, fechaFinAjustada]);
+        const result = await db.query(query, [id_familiar, fechaInicio, fechaFin]);
         const transacciones = result.rows;
+
 
         // Calcular totales
         const totalCargos = transacciones.reduce((sum, t) => 
