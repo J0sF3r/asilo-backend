@@ -14,10 +14,13 @@ router.get('/', solicitudesViewAuth, async (req, res) => {
                 s.*, 
                 p.nombre as nombre_paciente, 
                 m.nombre as nombre_medico_general,
-                s.motivo 
+                e.nombre as nombre_enfermero,
+                s.motivo,
+                s.fecha_solicitud
              FROM solicitud s
              JOIN paciente p ON s.id_paciente = p.id_paciente
              LEFT JOIN medico m ON s.id_medico_general = m.id_medico
+             LEFT JOIN enfermero e ON s.id_enfermero = e.id_enfermero
              ORDER BY s.fecha_solicitud DESC`
         );
         res.json(solicitudes.rows);
