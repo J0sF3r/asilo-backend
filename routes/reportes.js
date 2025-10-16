@@ -179,6 +179,7 @@ router.get('/entradas', foundationAuth, async (req, res) => {
     }
 });
 
+
 // @desc    Reporte de exámenes médicos por paciente
 router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
     const { id_paciente } = req.params;
@@ -203,19 +204,19 @@ router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
 
         const paciente = pacienteRes.rows[0];
 
-        // Obtener exámenes del paciente
+        // ✅ CORREGIDO: Usar examen_visita en lugar de visita_examen
         const examenesQuery = `
             SELECT 
                 vm.fecha_visita,
                 e.nombre_examen,
-                ve.resultado,
-                me.nombre AS nombre_medico,
+                ev.resultado,
+                m.nombre AS nombre_medico,
                 vm.diagnostico
-            FROM Visita_Examen ve
-            JOIN Visita_Medica vm ON ve.id_visita = vm.id_visita
-            JOIN Solicitud s ON vm.id_solicitud = s.id_solicitud
-            JOIN Examen e ON ve.id_examen = e.id_examen
-            LEFT JOIN Medico me ON s.id_medico_especialista = me.id_medico
+            FROM examen_visita ev
+            INNER JOIN visita_medica vm ON ev.id_visita = vm.id_visita
+            INNER JOIN solicitud s ON vm.id_solicitud = s.id_solicitud
+            INNER JOIN examen e ON ev.id_examen = e.id_examen
+            LEFT JOIN medico m ON s.id_medico_especialista = m.id_medico
             WHERE s.id_paciente = $1
               AND (vm.fecha_visita AT TIME ZONE 'America/Guatemala')::date >= $2::date
               AND (vm.fecha_visita AT TIME ZONE 'America/Guatemala')::date <= $3::date
@@ -236,4 +237,6 @@ router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
         res.status(500).json({ msg: 'Error al generar reporte', error: err.message });
     }
 });
+
+
 module.exports = router;
