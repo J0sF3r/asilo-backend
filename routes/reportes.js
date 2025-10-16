@@ -69,7 +69,7 @@ router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
     }
 });
 
-// @desc    Reporte de pagos a la fundación (SOLO PAGOS de familiares)
+// @desc    Reporte de pagos a la fundación (SOLO pagos de familiares)
 router.get('/pagos-fundacion', foundationAuth, async (req, res) => {
     const { fechaInicio, fechaFin } = req.query;
 
@@ -78,7 +78,6 @@ router.get('/pagos-fundacion', foundationAuth, async (req, res) => {
     }
 
     try {
-        // ✅ SOLO tipo = 'Pago' (cuando familiares pagan sus deudas)
         const query = `
             SELECT 
                 mf.fecha,
