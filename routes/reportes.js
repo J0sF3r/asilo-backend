@@ -13,7 +13,7 @@ router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
     }
 
     try {
-        // ✅ SOLUCIÓN: Usar CAST para convertir a fecha sin hora
+        // ✅ SOLUCIÓN DEFINITIVA: Convertir fechas a timestamp con zona horaria de Guatemala
         const query = `
             SELECT 
                 mf.fecha,
@@ -25,8 +25,8 @@ router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
                 mf.estado_pago
             FROM Movimiento_Financiero mf
             WHERE mf.id_familiar = $1
-              AND CAST(mf.fecha AS DATE) >= $2::date
-              AND CAST(mf.fecha AS DATE) <= $3::date
+              AND (mf.fecha AT TIME ZONE 'America/Guatemala')::date >= $2::date
+              AND (mf.fecha AT TIME ZONE 'America/Guatemala')::date <= $3::date
               AND (mf.tipo LIKE 'Cargo%' OR mf.tipo = 'Cuota Mensual')
             ORDER BY mf.fecha DESC
         `;
@@ -68,5 +68,4 @@ router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
         res.status(500).json({ msg: 'Error al generar reporte', error: err.message });
     }
 });
-
 module.exports = router;
