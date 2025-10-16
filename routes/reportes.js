@@ -4,7 +4,6 @@ const db = require('../db');
 const { foundationAuth } = require('../middleware/auth');
 
 // @desc    Reporte de cobros por familiar
-// @desc    Reporte de cobros por familiar
 router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
     const { id_familiar } = req.params;
     let { fechaInicio, fechaFin } = req.query;
@@ -14,7 +13,7 @@ router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
     }
 
     try {
-        // ✅ CORREGIDO: Usar DATE() para comparar solo fechas, sin horas
+        // ✅ SOLUCIÓN: Usar CAST para convertir a fecha sin hora
         const query = `
             SELECT 
                 mf.fecha,
@@ -26,15 +25,14 @@ router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
                 mf.estado_pago
             FROM Movimiento_Financiero mf
             WHERE mf.id_familiar = $1
-              AND DATE(mf.fecha) >= $2::date
-              AND DATE(mf.fecha) <= $3::date
+              AND CAST(mf.fecha AS DATE) >= $2::date
+              AND CAST(mf.fecha AS DATE) <= $3::date
               AND (mf.tipo LIKE 'Cargo%' OR mf.tipo = 'Cuota Mensual')
             ORDER BY mf.fecha DESC
         `;
         
         const result = await db.query(query, [id_familiar, fechaInicio, fechaFin]);
         const transacciones = result.rows;
-
 
         // Calcular totales
         const totalCargos = transacciones.reduce((sum, t) => 
@@ -66,7 +64,7 @@ router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
         });
 
     } catch (err) {
-        console.error('Error al generar reporte de cobros:', err.message);
+        console.error('Error al generar reporte de cobros:', err);
         res.status(500).json({ msg: 'Error al generar reporte', error: err.message });
     }
 });
