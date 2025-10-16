@@ -69,7 +69,7 @@ router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
     }
 });
 
-// @desc    Reporte de pagos a la fundación (SOLO pagos de familiares)
+// @desc    Reporte de pagos a la fundación (cargos ya pagados)
 router.get('/pagos-fundacion', foundationAuth, async (req, res) => {
     const { fechaInicio, fechaFin } = req.query;
 
@@ -78,18 +78,23 @@ router.get('/pagos-fundacion', foundationAuth, async (req, res) => {
     }
 
     try {
+        // ✅ CORREGIDO: Buscar cargos con estado_pago = 'Pagado'
         const query = `
             SELECT 
                 mf.fecha,
+                mf.tipo,
                 mf.descripcion,
                 mf.monto,
+                mf.monto_original,
+                mf.descuento_aplicado,
                 f.nombre AS nombre_familiar,
                 f.telefono AS telefono_familiar
             FROM Movimiento_Financiero mf
             JOIN Familiar f ON mf.id_familiar = f.id_familiar
             WHERE (mf.fecha AT TIME ZONE 'America/Guatemala')::date >= $1::date
               AND (mf.fecha AT TIME ZONE 'America/Guatemala')::date <= $2::date
-              AND mf.tipo = 'Pago'
+              AND mf.estado_pago = 'Pagado'
+              AND (mf.tipo LIKE 'Cargo%' OR mf.tipo = 'Cuota Mensual')
             ORDER BY mf.fecha DESC
         `;
         
