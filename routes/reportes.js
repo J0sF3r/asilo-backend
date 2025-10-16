@@ -178,4 +178,62 @@ router.get('/entradas', foundationAuth, async (req, res) => {
         res.status(500).json({ msg: 'Error al generar reporte', error: err.message });
     }
 });
+
+// @desc    Reporte de exámenes médicos por paciente
+router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
+    const { id_paciente } = req.params;
+    const { fechaInicio, fechaFin } = req.query;
+
+    if (!fechaInicio || !fechaFin) {
+        return res.status(400).json({ msg: 'Fechas de inicio y fin son requeridas' });
+    }
+
+    try {
+        // Obtener información del paciente
+        const pacienteQuery = `
+            SELECT nombre, fecha_nacimiento 
+            FROM Paciente 
+            WHERE id_paciente = $1
+        `;
+        const pacienteRes = await db.query(pacienteQuery, [id_paciente]);
+        
+        if (pacienteRes.rows.length === 0) {
+            return res.status(404).json({ msg: 'Paciente no encontrado' });
+        }
+
+        const paciente = pacienteRes.rows[0];
+
+        // Obtener exámenes del paciente
+        const examenesQuery = `
+            SELECT 
+                vm.fecha_visita,
+                e.nombre_examen,
+                ve.resultado,
+                me.nombre AS nombre_medico,
+                vm.diagnostico
+            FROM Visita_Examen ve
+            JOIN Visita_Medica vm ON ve.id_visita = vm.id_visita
+            JOIN Solicitud s ON vm.id_solicitud = s.id_solicitud
+            JOIN Examen e ON ve.id_examen = e.id_examen
+            LEFT JOIN Medico me ON s.id_medico_especialista = me.id_medico
+            WHERE s.id_paciente = $1
+              AND (vm.fecha_visita AT TIME ZONE 'America/Guatemala')::date >= $2::date
+              AND (vm.fecha_visita AT TIME ZONE 'America/Guatemala')::date <= $3::date
+            ORDER BY vm.fecha_visita DESC
+        `;
+        
+        const examenesRes = await db.query(examenesQuery, [id_paciente, fechaInicio, fechaFin]);
+        const examenes = examenesRes.rows;
+
+        res.json({
+            paciente,
+            examenes,
+            totalExamenes: examenes.length
+        });
+
+    } catch (err) {
+        console.error('Error al generar reporte de exámenes:', err);
+        res.status(500).json({ msg: 'Error al generar reporte', error: err.message });
+    }
+});
 module.exports = router;
