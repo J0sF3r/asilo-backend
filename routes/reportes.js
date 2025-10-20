@@ -270,7 +270,6 @@ router.get('/medicamentos/:id_paciente', foundationAuth, async (req, res) => {
             SELECT 
                 mv.fecha_entrega,
                 m.nombre,
-                m.tipo,
                 mv.cantidad,
                 mv.tiempo_aplicacion,
                 mv.estado,
