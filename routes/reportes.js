@@ -184,6 +184,14 @@ router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
     const { id_paciente } = req.params;
     const { fechaInicio, fechaFin } = req.query;
 
+    // ✅ LOGS DE DEPURACIÓN
+    console.log('=== DEBUGGING REPORTE EXÁMENES ===');
+    console.log('ID Paciente:', id_paciente);
+    console.log('Fecha Inicio recibida:', fechaInicio);
+    console.log('Fecha Fin recibida:', fechaFin);
+    console.log('Tipo de fechaInicio:', typeof fechaInicio);
+    console.log('Tipo de fechaFin:', typeof fechaFin);
+
     if (!fechaInicio || !fechaFin) {
         return res.status(400).json({ msg: 'Fechas de inicio y fin son requeridas' });
     }
@@ -203,27 +211,40 @@ router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
 
         const paciente = pacienteRes.rows[0];
 
-        // ✅ SOLUCIÓN DEFINITIVA: Conversión simple a DATE
+        // ✅ QUERY CON LOGS
         const examenesQuery = `
             SELECT 
                 vm.fecha_visita,
+                vm.fecha_visita::date as fecha_solo,
                 e.nombre_examen,
                 ev.resultado,
                 m.nombre AS nombre_medico,
-                vm.diagnostico
+                vm.diagnostico,
+                CASE 
+                    WHEN vm.fecha_visita::date >= $2::date AND vm.fecha_visita::date <= $3::date 
+                    THEN 'INCLUIDO' 
+                    ELSE 'EXCLUIDO' 
+                END as filtro_status
             FROM examen_visita ev
             INNER JOIN visita_medica vm ON ev.id_visita = vm.id_visita
             INNER JOIN solicitud s ON vm.id_solicitud = s.id_solicitud
             INNER JOIN examen e ON ev.id_examen = e.id_examen
             LEFT JOIN medico m ON s.id_medico_especialista = m.id_medico
             WHERE s.id_paciente = $1
-              AND vm.fecha_visita::date >= $2::date
-              AND vm.fecha_visita::date <= $3::date
             ORDER BY vm.fecha_visita DESC
         `;
         
+        console.log('Ejecutando query con parámetros:', [id_paciente, fechaInicio, fechaFin]);
         const examenesRes = await db.query(examenesQuery, [id_paciente, fechaInicio, fechaFin]);
-        const examenes = examenesRes.rows;
+        
+        console.log('=== RESULTADOS DE LA QUERY ===');
+        examenesRes.rows.forEach(row => {
+            console.log(`Fecha: ${row.fecha_visita} | Fecha Solo: ${row.fecha_solo} | Status: ${row.filtro_status} | Examen: ${row.nombre_examen}`);
+        });
+
+        // Filtrar los que deben incluirse
+        const examenes = examenesRes.rows.filter(row => row.filtro_status === 'INCLUIDO');
+        console.log(`Total exámenes después de filtro: ${examenes.length}`);
 
         res.json({
             paciente,
@@ -236,6 +257,10 @@ router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
         res.status(500).json({ msg: 'Error al generar reporte', error: err.message });
     }
 });
+
+
+
+
 
 
 module.exports = router;
