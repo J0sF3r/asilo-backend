@@ -301,4 +301,103 @@ router.get('/medicamentos/:id_paciente', foundationAuth, async (req, res) => {
     }
 });
 
+// @desc    Reporte de costos por visita del paciente
+router.get('/costos-visitas/:id_paciente', foundationAuth, async (req, res) => {
+    const { id_paciente } = req.params;
+    const { fechaInicio, fechaFin } = req.query;
+
+    if (!fechaInicio || !fechaFin) {
+        return res.status(400).json({ msg: 'Fechas de inicio y fin son requeridas' });
+    }
+
+    try {
+        // Obtener información del paciente
+        const pacienteQuery = `
+            SELECT nombre, fecha_nacimiento 
+            FROM Paciente 
+            WHERE id_paciente = $1
+        `;
+        const pacienteRes = await db.query(pacienteQuery, [id_paciente]);
+        
+        if (pacienteRes.rows.length === 0) {
+            return res.status(404).json({ msg: 'Paciente no encontrado' });
+        }
+
+        const paciente = pacienteRes.rows[0];
+
+        // Obtener visitas con sus costos
+        const visitasQuery = `
+            SELECT 
+                vm.id_visita,
+                vm.fecha_visita,
+                vm.diagnostico,
+                m.nombre AS nombre_medico
+            FROM visita_medica vm
+            INNER JOIN solicitud s ON vm.id_solicitud = s.id_solicitud
+            LEFT JOIN medico m ON s.id_medico_especialista = m.id_medico
+            WHERE s.id_paciente = $1
+              AND vm.fecha_visita::date >= $2::date
+              AND vm.fecha_visita::date <= $3::date
+            ORDER BY vm.fecha_visita DESC
+        `;
+        
+        const visitasRes = await db.query(visitasQuery, [id_paciente, fechaInicio, fechaFin]);
+        const visitas = visitasRes.rows;
+
+        // Para cada visita, obtener exámenes y medicamentos con costos
+        for (let visita of visitas) {
+            // Obtener exámenes de la visita
+            const examenesQuery = `
+                SELECT 
+                    e.nombre_examen,
+                    e.costo,
+                    ev.resultado
+                FROM examen_visita ev
+                INNER JOIN examen e ON ev.id_examen = e.id_examen
+                WHERE ev.id_visita = $1
+            `;
+            const examenesRes = await db.query(examenesQuery, [visita.id_visita]);
+            visita.examenes = examenesRes.rows;
+            visita.total_examenes = examenesRes.rows.reduce((sum, ex) => sum + parseFloat(ex.costo || 0), 0);
+
+            // Obtener medicamentos de la visita
+            const medicamentosQuery = `
+                SELECT 
+                    m.nombre AS nombre_medicamento,
+                    m.costo,
+                    mv.cantidad
+                FROM medicamento_visita mv
+                INNER JOIN medicamento m ON mv.id_medicamento = m.id_medicamento
+                WHERE mv.id_visita = $1
+            `;
+            const medicamentosRes = await db.query(medicamentosQuery, [visita.id_visita]);
+            visita.medicamentos = medicamentosRes.rows;
+            visita.total_medicamentos = medicamentosRes.rows.reduce((sum, med) => 
+                sum + (parseFloat(med.costo || 0) * parseInt(med.cantidad || 1)), 0
+            );
+
+            // Total por visita
+            visita.total_visita = visita.total_examenes + visita.total_medicamentos;
+        }
+
+        // Calcular totales generales
+        const totalGeneral = visitas.reduce((sum, v) => sum + v.total_visita, 0);
+        const totalExamenes = visitas.reduce((sum, v) => sum + v.total_examenes, 0);
+        const totalMedicamentos = visitas.reduce((sum, v) => sum + v.total_medicamentos, 0);
+
+        res.json({
+            paciente,
+            visitas,
+            totalGeneral: totalGeneral.toFixed(2),
+            totalExamenes: totalExamenes.toFixed(2),
+            totalMedicamentos: totalMedicamentos.toFixed(2),
+            cantidadVisitas: visitas.length
+        });
+
+    } catch (err) {
+        console.error('Error al generar reporte de costos:', err);
+        res.status(500).json({ msg: 'Error al generar reporte', error: err.message });
+    }
+});
+
 module.exports = router;
