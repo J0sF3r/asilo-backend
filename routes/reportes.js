@@ -184,20 +184,13 @@ router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
     const { id_paciente } = req.params;
     const { fechaInicio, fechaFin } = req.query;
 
-    // ✅ LOGS DE DEPURACIÓN
-    console.log('=== DEBUGGING REPORTE EXÁMENES ===');
-    console.log('ID Paciente:', id_paciente);
-    console.log('Fecha Inicio recibida:', fechaInicio);
-    console.log('Fecha Fin recibida:', fechaFin);
-    console.log('Tipo de fechaInicio:', typeof fechaInicio);
-    console.log('Tipo de fechaFin:', typeof fechaFin);
+   
 
     if (!fechaInicio || !fechaFin) {
         return res.status(400).json({ msg: 'Fechas de inicio y fin son requeridas' });
     }
 
     try {
-        // Obtener información del paciente
         const pacienteQuery = `
             SELECT nombre, fecha_nacimiento 
             FROM Paciente 
@@ -211,7 +204,6 @@ router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
 
         const paciente = pacienteRes.rows[0];
 
-        // ✅ QUERY CON LOGS
         const examenesQuery = `
             SELECT 
                 vm.fecha_visita,
@@ -234,17 +226,8 @@ router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
             ORDER BY vm.fecha_visita DESC
         `;
         
-        console.log('Ejecutando query con parámetros:', [id_paciente, fechaInicio, fechaFin]);
         const examenesRes = await db.query(examenesQuery, [id_paciente, fechaInicio, fechaFin]);
-        
-        console.log('=== RESULTADOS DE LA QUERY ===');
-        examenesRes.rows.forEach(row => {
-            console.log(`Fecha: ${row.fecha_visita} | Fecha Solo: ${row.fecha_solo} | Status: ${row.filtro_status} | Examen: ${row.nombre_examen}`);
-        });
-
-        // Filtrar los que deben incluirse
         const examenes = examenesRes.rows.filter(row => row.filtro_status === 'INCLUIDO');
-        console.log(`Total exámenes después de filtro: ${examenes.length}`);
 
         res.json({
             paciente,
@@ -258,9 +241,62 @@ router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
     }
 });
 
+// @desc    Reporte de medicamentos aplicados por paciente
+router.get('/medicamentos/:id_paciente', foundationAuth, async (req, res) => {
+    const { id_paciente } = req.params;
+    const { fechaInicio, fechaFin } = req.query;
 
+    if (!fechaInicio || !fechaFin) {
+        return res.status(400).json({ msg: 'Fechas de inicio y fin son requeridas' });
+    }
 
+    try {
+        // Obtener información del paciente
+        const pacienteQuery = `
+            SELECT nombre, fecha_nacimiento 
+            FROM Paciente 
+            WHERE id_paciente = $1
+        `;
+        const pacienteRes = await db.query(pacienteQuery, [id_paciente]);
+        
+        if (pacienteRes.rows.length === 0) {
+            return res.status(404).json({ msg: 'Paciente no encontrado' });
+        }
 
+        const paciente = pacienteRes.rows[0];
 
+        // Obtener medicamentos del paciente
+        const medicamentosQuery = `
+            SELECT 
+                m.nombre_medicamento,
+                m.tipo,
+                hm.fecha_aplicacion,
+                hm.dosis,
+                hm.frecuencia,
+                hm.observaciones,
+                e.nombre AS nombre_enfermero
+            FROM Historial_Medicamentos hm
+            JOIN Medicamento m ON hm.id_medicamento = m.id_medicamento
+            LEFT JOIN Enfermero e ON hm.id_enfermero = e.id_enfermero
+            WHERE hm.id_paciente = $1
+              AND hm.fecha_aplicacion::date >= $2::date
+              AND hm.fecha_aplicacion::date <= $3::date
+            ORDER BY hm.fecha_aplicacion DESC
+        `;
+        
+        const medicamentosRes = await db.query(medicamentosQuery, [id_paciente, fechaInicio, fechaFin]);
+        const medicamentos = medicamentosRes.rows;
+
+        res.json({
+            paciente,
+            medicamentos,
+            totalAplicaciones: medicamentos.length
+        });
+
+    } catch (err) {
+        console.error('Error al generar reporte de medicamentos:', err);
+        res.status(500).json({ msg: 'Error al generar reporte', error: err.message });
+    }
+});
 
 module.exports = router;
