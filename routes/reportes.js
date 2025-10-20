@@ -203,7 +203,7 @@ router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
 
         const paciente = pacienteRes.rows[0];
 
-        // ✅ CORREGIDO: Usar CAST para comparar solo fechas
+        // ✅ SOLUCIÓN DEFINITIVA: Conversión simple a DATE
         const examenesQuery = `
             SELECT 
                 vm.fecha_visita,
@@ -217,8 +217,8 @@ router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
             INNER JOIN examen e ON ev.id_examen = e.id_examen
             LEFT JOIN medico m ON s.id_medico_especialista = m.id_medico
             WHERE s.id_paciente = $1
-              AND CAST(vm.fecha_visita AS DATE) >= $2::date
-              AND CAST(vm.fecha_visita AS DATE) <= $3::date
+              AND vm.fecha_visita::date >= $2::date
+              AND vm.fecha_visita::date <= $3::date
             ORDER BY vm.fecha_visita DESC
         `;
         
