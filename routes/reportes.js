@@ -265,23 +265,26 @@ router.get('/medicamentos/:id_paciente', foundationAuth, async (req, res) => {
 
         const paciente = pacienteRes.rows[0];
 
-        // Obtener medicamentos del paciente
+        // ✅ CORREGIDO: Usar medicamento_visita con sus columnas reales
         const medicamentosQuery = `
             SELECT 
+                mv.fecha_entrega,
                 m.nombre_medicamento,
                 m.tipo,
-                hm.fecha_aplicacion,
-                hm.dosis,
-                hm.frecuencia,
-                hm.observaciones,
-                e.nombre AS nombre_enfermero
-            FROM Historial_Medicamentos hm
-            JOIN Medicamento m ON hm.id_medicamento = m.id_medicamento
-            LEFT JOIN Enfermero e ON hm.id_enfermero = e.id_enfermero
-            WHERE hm.id_paciente = $1
-              AND hm.fecha_aplicacion::date >= $2::date
-              AND hm.fecha_aplicacion::date <= $3::date
-            ORDER BY hm.fecha_aplicacion DESC
+                mv.cantidad,
+                mv.tiempo_aplicacion,
+                mv.estado,
+                vm.diagnostico,
+                med.nombre AS nombre_medico
+            FROM medicamento_visita mv
+            INNER JOIN visita_medica vm ON mv.id_visita = vm.id_visita
+            INNER JOIN solicitud s ON vm.id_solicitud = s.id_solicitud
+            INNER JOIN medicamento m ON mv.id_medicamento = m.id_medicamento
+            LEFT JOIN medico med ON s.id_medico_especialista = med.id_medico
+            WHERE s.id_paciente = $1
+              AND mv.fecha_entrega::date >= $2::date
+              AND mv.fecha_entrega::date <= $3::date
+            ORDER BY mv.fecha_entrega DESC
         `;
         
         const medicamentosRes = await db.query(medicamentosQuery, [id_paciente, fechaInicio, fechaFin]);
