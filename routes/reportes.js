@@ -374,25 +374,27 @@ router.get('/costos-visitas/:id_paciente', foundationAuth, async (req, res) => {
             visita.desc_consulta = consultaRes.rows.length > 0 ? consultaRes.rows[0].descripcion : 'Sin consulta registrada';
 
             // 2. Costos de EXÁMENES (solo los exámenes de ESTA visita)
-            const examenesQuery = `
-                SELECT DISTINCT
-                    e.nombre_examen,
-                    mf.monto AS costo
-                FROM examen_visita ev
-                INNER JOIN examen e ON ev.id_examen = e.id_examen
-                LEFT JOIN Movimiento_Financiero mf ON 
-                    mf.id_familiar = $1
-                    AND mf.tipo = 'Cargo Examen'
-                    AND mf.descripcion ILIKE '%' || e.nombre_examen || '%'
-                    AND DATE(mf.fecha) = DATE($2::timestamp)
-                WHERE ev.id_visita = $3
-            `;
-            const examenesRes = await db.query(examenesQuery, [paciente.id_familiar, fechaVisita, visita.id_visita]);
-            visita.examenes = examenesRes.rows.map(ex => ({
-                nombre_examen: ex.nombre_examen,
-                costo: parseFloat(ex.costo || 0)
-            }));
-            visita.total_examenes = visita.examenes.reduce((sum, ex) => sum + ex.costo, 0);
+const examenesQuery = `
+    SELECT DISTINCT
+        e.nombre_examen,
+        ev.resultado,
+        mf.monto AS costo
+    FROM examen_visita ev
+    INNER JOIN examen e ON ev.id_examen = e.id_examen
+    LEFT JOIN Movimiento_Financiero mf ON 
+        mf.id_familiar = $1
+        AND mf.tipo = 'Cargo Examen'
+        AND mf.descripcion ILIKE '%' || e.nombre_examen || '%'
+        AND DATE(mf.fecha) = DATE($2::timestamp)
+    WHERE ev.id_visita = $3
+`;
+const examenesRes = await db.query(examenesQuery, [paciente.id_familiar, fechaVisita, visita.id_visita]);
+visita.examenes = examenesRes.rows.map(ex => ({
+    nombre_examen: ex.nombre_examen,
+    costo: parseFloat(ex.costo || 0),
+    resultado: ex.resultado || 'Pendiente'
+}));
+visita.total_examenes = visita.examenes.reduce((sum, ex) => sum + ex.costo, 0);
 
             // 3. Costos de MEDICAMENTOS (solo los medicamentos de ESTA visita)
             const medicamentosQuery = `
