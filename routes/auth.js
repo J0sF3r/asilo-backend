@@ -51,9 +51,6 @@ router.post('/login', async (req, res) => {
             }
         );
     } catch (err) {
-        console.error("--- ERROR DETALLADO EN RUTA DE LOGIN ---");
-        console.error(err); // Imprimimos el objeto de error completo
-        console.error("--------------------------------------");
         res.status(500).send('Error en el Servidor');
     }
 });
