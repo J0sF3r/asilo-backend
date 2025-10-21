@@ -313,17 +313,27 @@ router.get('/costos-visitas/:id_paciente', foundationAuth, async (req, res) => {
     try {
         // Obtener información del paciente y su familiar
         const pacienteQuery = `
-            SELECT p.nombre, p.fecha_nacimiento, p.id_familiar
+            SELECT 
+                p.nombre, 
+                p.fecha_nacimiento,
+                pf.id_familiar
             FROM Paciente p
+            LEFT JOIN paciente_familiar pf ON p.id_paciente = pf.id_paciente AND pf.es_contacto_principal = true
             WHERE p.id_paciente = $1
+            LIMIT 1
         `;
-        const pacienteRes = await db.query(pacienteQuery, [id_paciente]);
+                const pacienteRes = await db.query(pacienteQuery, [id_paciente]);
 
         if (pacienteRes.rows.length === 0) {
             return res.status(404).json({ msg: 'Paciente no encontrado' });
         }
 
         const paciente = pacienteRes.rows[0];
+
+        // Verificar que tenga familiar asignado
+        if (!paciente.id_familiar) {
+            return res.status(404).json({ msg: 'Este paciente no tiene un familiar contacto principal asignado' });
+        }
 
         // Obtener visitas médicas del paciente
         const visitasQuery = `
