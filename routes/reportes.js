@@ -311,7 +311,7 @@ router.get('/costos-visitas/:id_paciente', foundationAuth, async (req, res) => {
     }
 
     try {
-        // Obtener información del paciente y su familiar
+        // Obtener información del paciente y su familiar contacto principal
         const pacienteQuery = `
             SELECT 
                 p.nombre, 
@@ -322,8 +322,8 @@ router.get('/costos-visitas/:id_paciente', foundationAuth, async (req, res) => {
             WHERE p.id_paciente = $1
             LIMIT 1
         `;
-                const pacienteRes = await db.query(pacienteQuery, [id_paciente]);
-
+        const pacienteRes = await db.query(pacienteQuery, [id_paciente]);
+        
         if (pacienteRes.rows.length === 0) {
             return res.status(404).json({ msg: 'Paciente no encontrado' });
         }
@@ -351,80 +351,71 @@ router.get('/costos-visitas/:id_paciente', foundationAuth, async (req, res) => {
               AND vm.fecha_visita::date <= $3::date
             ORDER BY vm.fecha_visita DESC
         `;
-
+        
         const visitasRes = await db.query(visitasQuery, [id_paciente, fechaInicio, fechaFin]);
         const visitas = visitasRes.rows;
 
         // Para cada visita, obtener los costos desde Movimiento_Financiero
         for (let visita of visitas) {
-            const fechaVisita = new Date(visita.fecha_visita).toISOString().split('T')[0];
-
-            // 1. Costo de CONSULTA (Cargo Consulta del día de la visita)
+            const fechaVisita = visita.fecha_visita;
+            
+            // 1. Costo de CONSULTA (buscar UN cargo consulta cercano a la hora de la visita)
             const consultaQuery = `
-    SELECT mf.monto, mf.descripcion
-    FROM Movimiento_Financiero mf
-    WHERE mf.id_familiar = $1
-      AND mf.tipo = 'Cargo Consulta'
-      AND mf.fecha::date = $2::date
-    LIMIT 1
-`;
+                SELECT mf.monto, mf.descripcion
+                FROM Movimiento_Financiero mf
+                WHERE mf.id_familiar = $1
+                  AND mf.tipo = 'Cargo Consulta'
+                  AND DATE(mf.fecha) = DATE($2::timestamp)
+                ORDER BY ABS(EXTRACT(EPOCH FROM (mf.fecha - $2::timestamp)))
+                LIMIT 1
+            `;
             const consultaRes = await db.query(consultaQuery, [paciente.id_familiar, fechaVisita]);
-
-            // ✅ DEBUG
-            console.log('=== DEBUG CONSULTA ===');
-            console.log('id_familiar:', paciente.id_familiar);
-            console.log('fechaVisita:', fechaVisita);
-            console.log('Resultados encontrados:', consultaRes.rows.length);
-            if (consultaRes.rows.length > 0) {
-                console.log('Monto:', consultaRes.rows[0].monto);
-                console.log('Tipo de monto:', typeof consultaRes.rows[0].monto);
-            }
-
             visita.costo_consulta = consultaRes.rows.length > 0 ? parseFloat(consultaRes.rows[0].monto || 0) : 0;
             visita.desc_consulta = consultaRes.rows.length > 0 ? consultaRes.rows[0].descripcion : 'Sin consulta registrada';
 
-            console.log('costo_consulta asignado:', visita.costo_consulta);
-
-            // 2. Costos de EXÁMENES (Cargo Examen del día de la visita)
+            // 2. Costos de EXÁMENES (solo los exámenes de ESTA visita)
             const examenesQuery = `
-                SELECT 
-                    mf.descripcion,
-                    mf.monto,
-                    ev.resultado
-                FROM Movimiento_Financiero mf
-                LEFT JOIN examen_visita ev ON ev.id_visita = $1
-                WHERE mf.id_familiar = $2
-                  AND mf.tipo = 'Cargo Examen'
-                  AND mf.fecha::date = $3::date
+                SELECT DISTINCT
+                    e.nombre_examen,
+                    mf.monto AS costo
+                FROM examen_visita ev
+                INNER JOIN examen e ON ev.id_examen = e.id_examen
+                LEFT JOIN Movimiento_Financiero mf ON 
+                    mf.id_familiar = $1
+                    AND mf.tipo = 'Cargo Examen'
+                    AND mf.descripcion ILIKE '%' || e.nombre_examen || '%'
+                    AND DATE(mf.fecha) = DATE($2::timestamp)
+                WHERE ev.id_visita = $3
             `;
-            const examenesRes = await db.query(examenesQuery, [visita.id_visita, paciente.id_familiar, fechaVisita]);
+            const examenesRes = await db.query(examenesQuery, [paciente.id_familiar, fechaVisita, visita.id_visita]);
             visita.examenes = examenesRes.rows.map(ex => ({
-                nombre_examen: ex.descripcion,
-                costo: parseFloat(ex.monto || 0),
-                resultado: ex.resultado || 'Pendiente'
+                nombre_examen: ex.nombre_examen,
+                costo: parseFloat(ex.costo || 0)
             }));
             visita.total_examenes = visita.examenes.reduce((sum, ex) => sum + ex.costo, 0);
 
-            // 3. Costos de MEDICAMENTOS (Cargo Medicamento y Cargo Medicamento Recurrente del día de la visita)
+            // 3. Costos de MEDICAMENTOS (solo los medicamentos de ESTA visita)
             const medicamentosQuery = `
-                SELECT 
-                    mf.descripcion,
-                    mf.monto,
-                    1 as cantidad
-                FROM Movimiento_Financiero mf
-                WHERE mf.id_familiar = $1
-                  AND (mf.tipo = 'Cargo Medicamento' OR mf.tipo = 'Cargo Medicamento Recurrente')
-                  AND mf.fecha::date = $2::date
+                SELECT DISTINCT
+                    m.nombre AS nombre_medicamento,
+                    mf.monto AS costo
+                FROM medicamento_visita mv
+                INNER JOIN medicamento m ON mv.id_medicamento = m.id_medicamento
+                LEFT JOIN Movimiento_Financiero mf ON 
+                    mf.id_familiar = $1
+                    AND (mf.tipo = 'Cargo Medicamento' OR mf.tipo = 'Cargo Medicamento Recurrente')
+                    AND (mf.descripcion ILIKE '%' || m.nombre || '%')
+                    AND DATE(mf.fecha) = DATE($2::timestamp)
+                WHERE mv.id_visita = $3
             `;
-            const medicamentosRes = await db.query(medicamentosQuery, [paciente.id_familiar, fechaVisita]);
+            const medicamentosRes = await db.query(medicamentosQuery, [paciente.id_familiar, fechaVisita, visita.id_visita]);
             visita.medicamentos = medicamentosRes.rows.map(med => ({
-                nombre_medicamento: med.descripcion,
-                costo: parseFloat(med.monto || 0),
-                cantidad: parseInt(med.cantidad || 1)
+                nombre_medicamento: med.nombre_medicamento,
+                costo: parseFloat(med.costo || 0)
             }));
-            visita.total_medicamentos = visita.medicamentos.reduce((sum, med) => sum + (med.costo * med.cantidad), 0);
+            visita.total_medicamentos = visita.medicamentos.reduce((sum, med) => sum + med.costo, 0);
 
-            // Total por visita (consulta + exámenes + medicamentos)
+            // Total por visita
             visita.total_visita = visita.costo_consulta + visita.total_examenes + visita.total_medicamentos;
         }
 
