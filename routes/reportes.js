@@ -30,12 +30,12 @@ router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
               AND (mf.tipo LIKE 'Cargo%' OR mf.tipo = 'Cuota Mensual')
             ORDER BY mf.fecha DESC
         `;
-        
+
         const result = await db.query(query, [id_familiar, fechaInicio, fechaFin]);
         const transacciones = result.rows;
 
         // Calcular totales
-        const totalCargos = transacciones.reduce((sum, t) => 
+        const totalCargos = transacciones.reduce((sum, t) =>
             sum + parseFloat(t.monto_original || t.monto), 0
         );
 
@@ -97,7 +97,7 @@ router.get('/pagos-fundacion', foundationAuth, async (req, res) => {
               AND (mf.tipo LIKE 'Cargo%' OR mf.tipo = 'Cuota Mensual')
             ORDER BY mf.fecha DESC
         `;
-        
+
         const result = await db.query(query, [fechaInicio, fechaFin]);
         const pagos = result.rows;
 
@@ -145,7 +145,7 @@ router.get('/entradas', foundationAuth, async (req, res) => {
               )
             ORDER BY mf.fecha DESC
         `;
-        
+
         const result = await db.query(query, [fechaInicio, fechaFin]);
         const transacciones = result.rows;
 
@@ -184,7 +184,7 @@ router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
     const { id_paciente } = req.params;
     const { fechaInicio, fechaFin } = req.query;
 
-   
+
 
     if (!fechaInicio || !fechaFin) {
         return res.status(400).json({ msg: 'Fechas de inicio y fin son requeridas' });
@@ -197,7 +197,7 @@ router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
             WHERE id_paciente = $1
         `;
         const pacienteRes = await db.query(pacienteQuery, [id_paciente]);
-        
+
         if (pacienteRes.rows.length === 0) {
             return res.status(404).json({ msg: 'Paciente no encontrado' });
         }
@@ -225,7 +225,7 @@ router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
             WHERE s.id_paciente = $1
             ORDER BY vm.fecha_visita DESC
         `;
-        
+
         const examenesRes = await db.query(examenesQuery, [id_paciente, fechaInicio, fechaFin]);
         const examenes = examenesRes.rows.filter(row => row.filtro_status === 'INCLUIDO');
 
@@ -258,7 +258,7 @@ router.get('/medicamentos/:id_paciente', foundationAuth, async (req, res) => {
             WHERE id_paciente = $1
         `;
         const pacienteRes = await db.query(pacienteQuery, [id_paciente]);
-        
+
         if (pacienteRes.rows.length === 0) {
             return res.status(404).json({ msg: 'Paciente no encontrado' });
         }
@@ -285,7 +285,7 @@ router.get('/medicamentos/:id_paciente', foundationAuth, async (req, res) => {
               AND mv.fecha_entrega::date <= $3::date
             ORDER BY mv.fecha_entrega DESC
         `;
-        
+
         const medicamentosRes = await db.query(medicamentosQuery, [id_paciente, fechaInicio, fechaFin]);
         const medicamentos = medicamentosRes.rows;
 
@@ -311,27 +311,28 @@ router.get('/costos-visitas/:id_paciente', foundationAuth, async (req, res) => {
     }
 
     try {
-        // Obtener información del paciente
+        // Obtener información del paciente y su familiar
         const pacienteQuery = `
-            SELECT nombre, fecha_nacimiento 
-            FROM Paciente 
-            WHERE id_paciente = $1
+            SELECT p.nombre, p.fecha_nacimiento, p.id_familiar
+            FROM Paciente p
+            WHERE p.id_paciente = $1
         `;
         const pacienteRes = await db.query(pacienteQuery, [id_paciente]);
-        
+
         if (pacienteRes.rows.length === 0) {
             return res.status(404).json({ msg: 'Paciente no encontrado' });
         }
 
         const paciente = pacienteRes.rows[0];
 
-        // Obtener visitas con sus costos
+        // Obtener visitas médicas del paciente
         const visitasQuery = `
             SELECT 
                 vm.id_visita,
                 vm.fecha_visita,
                 vm.diagnostico,
-                m.nombre AS nombre_medico
+                m.nombre AS nombre_medico,
+                s.id_solicitud
             FROM visita_medica vm
             INNER JOIN solicitud s ON vm.id_solicitud = s.id_solicitud
             LEFT JOIN medico m ON s.id_medico_especialista = m.id_medico
@@ -340,57 +341,96 @@ router.get('/costos-visitas/:id_paciente', foundationAuth, async (req, res) => {
               AND vm.fecha_visita::date <= $3::date
             ORDER BY vm.fecha_visita DESC
         `;
-        
+
         const visitasRes = await db.query(visitasQuery, [id_paciente, fechaInicio, fechaFin]);
         const visitas = visitasRes.rows;
 
-        // Para cada visita, obtener exámenes y medicamentos con costos
+        // Para cada visita, obtener los costos desde Movimiento_Financiero
         for (let visita of visitas) {
-            // Obtener exámenes de la visita
+            const fechaVisita = new Date(visita.fecha_visita).toISOString().split('T')[0];
+
+            // 1. Costo de CONSULTA (Cargo Consulta del día de la visita)
+            const consultaQuery = `
+    SELECT mf.monto, mf.descripcion
+    FROM Movimiento_Financiero mf
+    WHERE mf.id_familiar = $1
+      AND mf.tipo = 'Cargo Consulta'
+      AND mf.fecha::date = $2::date
+    LIMIT 1
+`;
+            const consultaRes = await db.query(consultaQuery, [paciente.id_familiar, fechaVisita]);
+
+            // ✅ DEBUG
+            console.log('=== DEBUG CONSULTA ===');
+            console.log('id_familiar:', paciente.id_familiar);
+            console.log('fechaVisita:', fechaVisita);
+            console.log('Resultados encontrados:', consultaRes.rows.length);
+            if (consultaRes.rows.length > 0) {
+                console.log('Monto:', consultaRes.rows[0].monto);
+                console.log('Tipo de monto:', typeof consultaRes.rows[0].monto);
+            }
+
+            visita.costo_consulta = consultaRes.rows.length > 0 ? parseFloat(consultaRes.rows[0].monto || 0) : 0;
+            visita.desc_consulta = consultaRes.rows.length > 0 ? consultaRes.rows[0].descripcion : 'Sin consulta registrada';
+
+            console.log('costo_consulta asignado:', visita.costo_consulta);
+
+            // 2. Costos de EXÁMENES (Cargo Examen del día de la visita)
             const examenesQuery = `
                 SELECT 
-                    e.nombre_examen,
-                    e.costo,
+                    mf.descripcion,
+                    mf.monto,
                     ev.resultado
-                FROM examen_visita ev
-                INNER JOIN examen e ON ev.id_examen = e.id_examen
-                WHERE ev.id_visita = $1
+                FROM Movimiento_Financiero mf
+                LEFT JOIN examen_visita ev ON ev.id_visita = $1
+                WHERE mf.id_familiar = $2
+                  AND mf.tipo = 'Cargo Examen'
+                  AND mf.fecha::date = $3::date
             `;
-            const examenesRes = await db.query(examenesQuery, [visita.id_visita]);
-            visita.examenes = examenesRes.rows;
-            visita.total_examenes = examenesRes.rows.reduce((sum, ex) => sum + parseFloat(ex.costo || 0), 0);
+            const examenesRes = await db.query(examenesQuery, [visita.id_visita, paciente.id_familiar, fechaVisita]);
+            visita.examenes = examenesRes.rows.map(ex => ({
+                nombre_examen: ex.descripcion,
+                costo: parseFloat(ex.monto || 0),
+                resultado: ex.resultado || 'Pendiente'
+            }));
+            visita.total_examenes = visita.examenes.reduce((sum, ex) => sum + ex.costo, 0);
 
-            // Obtener medicamentos de la visita
+            // 3. Costos de MEDICAMENTOS (Cargo Medicamento y Cargo Medicamento Recurrente del día de la visita)
             const medicamentosQuery = `
                 SELECT 
-                    m.nombre AS nombre_medicamento,
-                    m.costo,
-                    mv.cantidad
-                FROM medicamento_visita mv
-                INNER JOIN medicamento m ON mv.id_medicamento = m.id_medicamento
-                WHERE mv.id_visita = $1
+                    mf.descripcion,
+                    mf.monto,
+                    1 as cantidad
+                FROM Movimiento_Financiero mf
+                WHERE mf.id_familiar = $1
+                  AND (mf.tipo = 'Cargo Medicamento' OR mf.tipo = 'Cargo Medicamento Recurrente')
+                  AND mf.fecha::date = $2::date
             `;
-            const medicamentosRes = await db.query(medicamentosQuery, [visita.id_visita]);
-            visita.medicamentos = medicamentosRes.rows;
-            visita.total_medicamentos = medicamentosRes.rows.reduce((sum, med) => 
-                sum + (parseFloat(med.costo || 0) * parseInt(med.cantidad || 1)), 0
-            );
+            const medicamentosRes = await db.query(medicamentosQuery, [paciente.id_familiar, fechaVisita]);
+            visita.medicamentos = medicamentosRes.rows.map(med => ({
+                nombre_medicamento: med.descripcion,
+                costo: parseFloat(med.monto || 0),
+                cantidad: parseInt(med.cantidad || 1)
+            }));
+            visita.total_medicamentos = visita.medicamentos.reduce((sum, med) => sum + (med.costo * med.cantidad), 0);
 
-            // Total por visita
-            visita.total_visita = visita.total_examenes + visita.total_medicamentos;
+            // Total por visita (consulta + exámenes + medicamentos)
+            visita.total_visita = visita.costo_consulta + visita.total_examenes + visita.total_medicamentos;
         }
 
         // Calcular totales generales
-        const totalGeneral = visitas.reduce((sum, v) => sum + v.total_visita, 0);
+        const totalConsultas = visitas.reduce((sum, v) => sum + v.costo_consulta, 0);
         const totalExamenes = visitas.reduce((sum, v) => sum + v.total_examenes, 0);
         const totalMedicamentos = visitas.reduce((sum, v) => sum + v.total_medicamentos, 0);
+        const totalGeneral = visitas.reduce((sum, v) => sum + v.total_visita, 0);
 
         res.json({
             paciente,
             visitas,
-            totalGeneral: totalGeneral.toFixed(2),
+            totalConsultas: totalConsultas.toFixed(2),
             totalExamenes: totalExamenes.toFixed(2),
             totalMedicamentos: totalMedicamentos.toFixed(2),
+            totalGeneral: totalGeneral.toFixed(2),
             cantidadVisitas: visitas.length
         });
 
@@ -399,5 +439,4 @@ router.get('/costos-visitas/:id_paciente', foundationAuth, async (req, res) => {
         res.status(500).json({ msg: 'Error al generar reporte', error: err.message });
     }
 });
-
 module.exports = router;
