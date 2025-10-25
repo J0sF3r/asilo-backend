@@ -17,8 +17,6 @@ module.exports = {
 // backend/db.js
 const { Pool } = require('pg');
 
-// Esta versión es la más simple. Confía 100% en la cadena
-// de conexión que le proporcionará el entorno (Render o tu .env local).
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL, 
 });

@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 
-// @desc    Autenticar usuario y obtener token (CÓDIGO RESTAURADO)
+// @desc    Autenticar usuario y obtener token 
 router.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -44,7 +44,7 @@ router.post('/login', async (req, res) => {
         jwt.sign(
             payload,
             process.env.JWT_SECRET,
-            { expiresIn: '5h' },
+            { expiresIn: '30m' },
             (err, token) => {
                 if (err) throw err;
                 res.json({ token, rol: user.nombre_rol });
@@ -55,7 +55,7 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// En backend/routes/auth.js
+// rourte para registrar usuario
 router.post('/register', async (req, res) => {
     const {
         username,

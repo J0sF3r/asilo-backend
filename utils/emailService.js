@@ -38,11 +38,11 @@ const enviarCorreoNotificacion = async (destinatario, datos) => {
                     </tr>
                     <tr>
                         <td style="padding: 10px; border: 1px solid #ddd;"><strong>Referido por:</strong></td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">Dr./Dra. ${nombreMedicoGeneral || 'N/A'}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">${nombreMedicoGeneral || 'N/A'}</td>
                     </tr>
                     <tr style="background-color: #f2f2f2;">
                         <td style="padding: 10px; border: 1px solid #ddd;"><strong>Médico Especialista:</strong></td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">Dr./Dra. ${nombreMedicoEspecialista} (${especialidadMedico || 'Especialista'})</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">${nombreMedicoEspecialista} (${especialidadMedico || 'Especialista'})</td>
                     </tr>
                     <tr>
                         <td style="padding: 10px; border: 1px solid #ddd;"><strong>Fecha y Hora:</strong></td>
@@ -72,7 +72,6 @@ const enviarCorreoNotificacion = async (destinatario, datos) => {
 
     try {
         await transporter.sendMail(mailOptions);
-        console.log('Correo de notificación mejorado enviado exitosamente a:', destinatario);
     } catch (error) {
         console.error('Error al enviar el correo de notificación:', error.toString());
     }

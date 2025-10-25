@@ -4,6 +4,7 @@ const router = express.Router();
 const db = require('../db');
 const { adminAuth, foundationAuth, medicoAuth, auth } = require('../middleware/auth');
 
+// @route   POST api/visitas
 // Crear un nuevo registro de visita médica
 router.post('/', adminAuth, async (req, res) => {
     const { id_solicitud, fecha_visita, lugar, observaciones_preparacion } = req.body;
@@ -25,10 +26,10 @@ router.post('/', adminAuth, async (req, res) => {
     }
 });
 
-// Obtener todas las visitas médicas programadas (con filtro opcional por estado)
+// Obtener todas las visitas médicas programadas
 router.get('/', foundationAuth, async (req, res) => {
     try {
-        const { estado } = req.query; // ✅ Leer el parámetro de filtro
+        const { estado } = req.query;
         
         let queryText = `
             SELECT 
@@ -53,15 +54,14 @@ router.get('/', foundationAuth, async (req, res) => {
         `;
         const queryParams = [];
         let paramIndex = 1;
-
-        // ✅ Filtro por rol de Médico Especialista
+        //Filtro por Médico Especialista si el usuario es de ese rol
         if (req.user.nombre_rol === 'Medico Especialista') {
             queryText += ` AND s.id_medico_especialista = $${paramIndex}`;
             queryParams.push(req.user.id_medico);
             paramIndex++;
         }
 
-        // ✅ Filtro por estado (si se proporciona)
+        // filtro por estado 
         if (estado) {
             queryText += ` AND vm.estado = $${paramIndex}`;
             queryParams.push(estado);
@@ -79,8 +79,8 @@ router.get('/', foundationAuth, async (req, res) => {
     }
 });
 
-// OBTENER CITAS PROGRAMADAS PARA EL MÉDICO AUTENTICADO
-// En backend/routes/visitas.js
+
+// obtener las citas asignadas al médico logueado
 router.get('/mis-citas', medicoAuth, async (req, res) => {
     try {
         const { estado } = req.query; 
@@ -104,7 +104,6 @@ router.get('/mis-citas', medicoAuth, async (req, res) => {
             WHERE s.id_medico_especialista = $1
         `;
 
-        // Si se proporciona un estado en la URL, se añade a la consulta
         if (estado) {
             queryParams.push(estado);
             query += ` AND vm.estado = $2`;
@@ -121,8 +120,9 @@ router.get('/mis-citas', medicoAuth, async (req, res) => {
     }
 });
 
+// route   GET api/visitas/pendientes-revision
 // Obtener visitas con resultados de examen listos para revisión médica
-router.get('/pendientes-revision', auth, async (req, res) => { // Usamos el middleware 'auth' general
+router.get('/pendientes-revision', auth, async (req, res) => { 
     try {
         const userRole = req.user.nombre_rol;
         const userId = req.user.id_usuario; // Obtenemos el ID del usuario del token
@@ -140,18 +140,15 @@ router.get('/pendientes-revision', auth, async (req, res) => { // Usamos el midd
         
         const queryParams = [];
 
-        // Si el usuario es un Administrador, puede ver todas las pendientes
         if (userRole === 'Administración') {
-            // No se añaden más filtros, la consulta se queda como está.
         } 
-        // Si es un Médico Especialista, solo ve las suyas
         else if (userRole === 'Medico Especialista') {
             query += ` AND s.id_medico_especialista = $1`;
             queryParams.push(userId); // Filtramos por el ID del médico logueado
         } 
-        // Si es cualquier otro rol (ej. Médico General), no debe ver nada
+
         else {
-            return res.json([]); // Devolvemos una lista vacía
+            return res.json([]); 
         }
 
         query += ` ORDER BY vm.fecha_visita ASC;`;
@@ -164,6 +161,8 @@ router.get('/pendientes-revision', auth, async (req, res) => { // Usamos el midd
         res.status(500).send('Error en el Servidor');
     }
 });
+
+// @route   PUT api/visitas/:id
 //  Actualizar una visita médica y la solicitud original
 router.put('/:id', medicoAuth, async (req, res) => {
     const { id: id_visita } = req.params;

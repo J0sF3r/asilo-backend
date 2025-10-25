@@ -1,12 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-// Importamos los nuevos permisos junto con el de admin
 const { adminAuth, generalAuth, foundationAuth, solicitudesViewAuth } = require('../middleware/auth');
 const { enviarCorreoNotificacion } = require('../utils/emailService');
 
 // @route   GET api/solicitudes
-// @desc    Obtener todas las solicitudes generadas por el usuario (Acción de Visualización)
+//Obtener todas las solicitudes generadas por el usuario (Acción de Visualización)
 router.get('/', solicitudesViewAuth, async (req, res) => {
     try {
         const solicitudes = await db.query(
@@ -31,7 +30,7 @@ router.get('/', solicitudesViewAuth, async (req, res) => {
 });
 
 // @route   POST api/solicitudes
-// @desc    Crear una nueva solicitud (Acción de Administración)
+//Crear una nueva solicitud (Acción de Administración)
 router.post('/', adminAuth, async (req, res) => {
     const { id_paciente, id_medico_general, motivo } = req.body;
     try {
@@ -48,10 +47,9 @@ router.post('/', adminAuth, async (req, res) => {
 });
 
 // @route   PUT api/solicitudes/:id/aprobar
-// @desc    Aprobar una solicitud (Acción de Médico General)
+//Aprobar una solicitud (Acción de Médico General)
 router.put('/:id/aprobar', generalAuth, async (req, res) => {
     const { id } = req.params;
-    // Ahora también recibimos el diagnóstico del Médico General
     const { especialidad_requerida, id_enfermero, diagnostico_general } = req.body;
 
     try {
@@ -72,13 +70,16 @@ router.put('/:id/aprobar', generalAuth, async (req, res) => {
     }
 });
 
+
+// @route   POST api/solicitudes/:id/programar
+//Programar una solicitud aprobada
 router.post('/:id/programar', foundationAuth, async (req, res) => {
     const { id: id_solicitud } = req.params;
 
     const { id_medico_especialista, fecha_visita, lugar, costo_consulta, descuento_porcentaje } = req.body;
 
     try {
-        // --- 1. CREAMOS LA VISITA (YA NO GUARDA COSTOS) ---
+        // Crea la visita-
         const nuevaVisita = await db.query(
             `INSERT INTO visita_medica (id_solicitud, fecha_visita, lugar, estado)
              VALUES ($1, $2, $3, 'programada') RETURNING *`,
@@ -86,7 +87,7 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
         );
         const id_visita = nuevaVisita.rows[0].id_visita;
 
-        // --- 2. ACTUALIZAMOS LA SOLICITUD (SIN CAMBIOS) ---
+        // Actualiza la solicitud
         const solicitudActualizada = await db.query(
             `UPDATE solicitud SET id_medico_especialista = $1, estado = 'programada'
              WHERE id_solicitud = $2 AND estado = 'aprobada' RETURNING *`,
@@ -96,19 +97,19 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
         if (solicitudActualizada.rowCount === 0) {
             return res.status(404).json({ msg: 'Solicitud no encontrada o no está en estado "aprobada".' });
         }
-        // --- 3. LÓGICA DE COBRO EN LA NUEVA TABLA ---
+        // Logica de cobro
         const costoBase = parseFloat(costo_consulta) || 0;
         const descuento = parseFloat(descuento_porcentaje) || 0;
         const montoFinal = costoBase - (costoBase * (descuento / 100));
 
         if (montoFinal > 0) {
-            // Buscamos el id_familiar y el nombre del paciente para la descripción
+            // busca al paciente y su familiar contacto principal
             const infoPaciente = await db.query(
                 `SELECT s.id_paciente, p.nombre AS nombre_paciente, pf.id_familiar 
-         FROM solicitud s
-         JOIN paciente p ON s.id_paciente = p.id_paciente
-         LEFT JOIN paciente_familiar pf ON p.id_paciente = pf.id_paciente AND pf.es_contacto_principal = TRUE
-         WHERE s.id_solicitud = $1`,
+                    FROM solicitud s
+                    JOIN paciente p ON s.id_paciente = p.id_paciente
+                    LEFT JOIN paciente_familiar pf ON p.id_paciente = pf.id_paciente AND pf.es_contacto_principal = TRUE
+                    WHERE s.id_solicitud = $1`,
                 [id_solicitud]
             );
 
@@ -123,6 +124,7 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
             );
         }
 
+        // Enviar correo de notificación al familiar contacto principal
         const datosParaCorreoQuery = `
             SELECT 
                 fam.email, 
@@ -164,6 +166,9 @@ router.post('/:id/programar', foundationAuth, async (req, res) => {
     }
 });
 
+
+// @route   GET api/solicitudes/:id
+//Obtener los detalles de una solicitud específica
 router.get('/:id', solicitudesViewAuth, async (req, res) => {
     try {
         const { id } = req.params;

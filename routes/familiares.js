@@ -5,8 +5,7 @@ const db = require('../db');
 const { adminAuth, generalAuth } = require('../middleware/auth');
 
 // @route   POST api/familiares
-// @desc    Registrar un nuevo familiar
-// @access  Private (Admin)
+//Registrar un nuevo familiar
 router.post('/', adminAuth, async (req, res) => {
     const { nombre, parentesco, telefono, email } = req.body;
     try {
@@ -25,7 +24,6 @@ router.post('/', adminAuth, async (req, res) => {
 //obtener todos los familiares
 router.get('/', adminAuth, async (req, res) => {
     try {
-        // --- CAMBIO: Se añade "WHERE activo = TRUE"
         const familiares = await db.query('SELECT * FROM Familiar WHERE activo = TRUE ORDER BY nombre ASC');
         res.json(familiares.rows);
     } catch (err) {
@@ -35,8 +33,7 @@ router.get('/', adminAuth, async (req, res) => {
 });
 
 // @route   GET api/familiares/disponibles/:id_paciente
-// @desc    Obtener familiares ACTIVOS que no están asignados a ESTE paciente
-// --- ESTA ES LA RUTA QUE FALTABA ---
+//Obtener familiares ACTIVOS que no están asignados a ESTE paciente
 router.get('/disponibles/:id_paciente', adminAuth, async (req, res) => {
     try {
         const { id_paciente } = req.params;
@@ -53,7 +50,8 @@ router.get('/disponibles/:id_paciente', adminAuth, async (req, res) => {
     }
 });
 
-// @desc    Obtener el estado de cuenta completo de un familiar (desde la tabla unificada)
+// @route   GET api/familiares/:id/estado-de-cuenta
+//Obtener el estado de cuenta completo de un familiar
 router.get('/:id/estado-de-cuenta', adminAuth, async (req, res) => {
     const { id: id_familiar } = req.params;
     try {
@@ -147,18 +145,5 @@ router.delete('/:id', adminAuth, async (req, res) => {
         res.status(500).send('Error en el Servidor');
     }
 });
-
-/*
-router.get('/', adminAuth, async (req, res) => {
-    try {
-        const medicos = await db.query("SELECT id_familiar, nombre FROM familiar ORDER BY nombre ASC");
-        res.json(familiares.rows);
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Error en el Servidor');
-    }
-});
-*/
-
 
 module.exports = router;

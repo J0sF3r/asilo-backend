@@ -4,7 +4,7 @@ const db = require('../db');
 const { adminAuth, foundationAuth } = require('../middleware/auth');
 
 // @route   GET api/cuotas
-// @desc    Obtener todas las configuraciones de cuotas
+// Obtener todas las configuraciones de cuotas
 router.get('/', foundationAuth, async (req, res) => {
     try {
         const query = `
@@ -30,7 +30,7 @@ router.get('/', foundationAuth, async (req, res) => {
 });
 
 // @route   POST api/cuotas
-// @desc    Crear o actualizar configuración de cuota para un familiar
+// Crear o actualizar configuración de cuota para un familiar
 router.post('/', adminAuth, async (req, res) => {
     const { id_familiar, monto, descripcion } = req.body;
 
@@ -39,14 +39,14 @@ router.post('/', adminAuth, async (req, res) => {
     }
 
     try {
-        // Verificar si ya existe una configuración activa para este familiar
+        // Verificar si existe una configuración activa para este familiar
         const existe = await db.query(
             'SELECT * FROM configuracion_cuota WHERE id_familiar = $1 AND activo = TRUE',
             [id_familiar]
         );
 
         if (existe.rowCount > 0) {
-            // Actualizar existente
+            // Actualiza existente
             const actualizado = await db.query(
                 `UPDATE configuracion_cuota 
                  SET monto = $1, descripcion = $2
@@ -72,7 +72,7 @@ router.post('/', adminAuth, async (req, res) => {
 });
 
 // @route   PUT api/cuotas/:id/desactivar
-// @desc    Desactivar configuración de cuota
+//Desactivar configuración de cuota
 router.put('/:id/desactivar', adminAuth, async (req, res) => {
     const { id } = req.params;
 
@@ -97,16 +97,16 @@ router.put('/:id/desactivar', adminAuth, async (req, res) => {
 });
 
 // @route   POST api/cuotas/generar-mes
-// @desc    Generar cuotas del mes para todos los familiares activos
+// Generar cuotas del mes para todos los familiares activos
 router.post('/generar-mes', adminAuth, async (req, res) => {
-    const { mes, año } = req.body; // ej: mes=10, año=2025
+    const { mes, año } = req.body; 
 
     if (!mes || !año) {
         return res.status(400).json({ msg: 'Mes y año son requeridos.' });
     }
 
     try {
-        // Obtener todas las configuraciones activas
+        // Obtengo todas las configuraciones activas
         const configuraciones = await db.query(
             'SELECT * FROM configuracion_cuota WHERE activo = TRUE'
         );
@@ -123,7 +123,7 @@ router.post('/generar-mes', adminAuth, async (req, res) => {
         let yaExistentes = 0;
 
         for (const config of configuraciones.rows) {
-            // Verificar si ya existe una cuota para este familiar en este mes/año
+            // Verificar si ya existe una cuota para este familiar en este
             const existe = await db.query(
                 `SELECT * FROM Movimiento_Financiero 
                  WHERE id_familiar = $1 

@@ -4,7 +4,7 @@ const router = express.Router();
 const db = require('../db');
 const { generalViewAuth, foundationAuth } = require('../middleware/auth');
 
-
+// @route   POST api/medicamentos
 // Crear un nuevo medicamento
 router.post('/', foundationAuth, async (req, res) => {
     const { nombre, descripcion, costo } = req.body;
@@ -23,8 +23,8 @@ router.post('/', foundationAuth, async (req, res) => {
     }
 });
 
-
-// Obtener todos los medicamentos, antes tenia adminAuth ahora generalViewAuth
+// @route   GET api/medicamentos
+// Obtener todos los medicamentos
 router.get('/', generalViewAuth, async (req, res) => {
     try {
         const medicamentos = await db.query("SELECT * FROM medicamento ORDER BY nombre ASC");
@@ -36,6 +36,7 @@ router.get('/', generalViewAuth, async (req, res) => {
 });
 
 
+// @route   GET api/medicamentos/:id
 // Actualizar un medicamento
 router.put('/:id', foundationAuth, async (req, res) => {
     const { id } = req.params;
@@ -59,6 +60,7 @@ router.put('/:id', foundationAuth, async (req, res) => {
 });
 
 
+// @route   GET api/medicamentos/:id
 // Eliminar un medicamento
 router.delete('/:id', foundationAuth, async (req, res) => {
     const { id } = req.params;

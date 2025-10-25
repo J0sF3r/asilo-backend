@@ -4,7 +4,7 @@ const db = require('../db');
 const { adminAuth, solicitudesViewAuth } = require('../middleware/auth');
 
 // @route   POST api/enfermeros
-// @desc    Registrar un nuevo enfermero/a
+// Registrar un nuevo enfermero/a
 router.post('/', adminAuth, async (req, res) => {
     const { nombre, telefono, email } = req.body;
     try {
@@ -21,7 +21,7 @@ router.post('/', adminAuth, async (req, res) => {
 });
 
 // @route   GET api/enfermeros
-// @desc    Obtener todos los enfermeros/as ACTIVOS
+// Obtener todos los enfermeros/as ACTIVOS
 router.get('/', solicitudesViewAuth, async (req, res) => {
     try {
         const enfermeros = await db.query('SELECT * FROM Enfermero WHERE activo = TRUE ORDER BY nombre ASC');
@@ -33,8 +33,7 @@ router.get('/', solicitudesViewAuth, async (req, res) => {
 });
 
 // @route   PUT api/enfermeros/:id
-// @desc    Actualizar un enfermero/a
-// --- NUEVA RUTA ---
+//Actualizar un enfermero/a
 router.put('/:id', adminAuth, async (req, res) => {
     const { id } = req.params;
     const { nombre, telefono, email } = req.body;
@@ -55,8 +54,7 @@ router.put('/:id', adminAuth, async (req, res) => {
 });
 
 // @route   DELETE api/enfermeros/:id
-// @desc    Desactivar un enfermero/a (Borrado Lógico)
-// --- NUEVA RUTA ---
+// Desactivar un enfermero/a (Borrado Lógico)
 router.delete('/:id', adminAuth, async (req, res) => {
     const { id } = req.params;
     try {

@@ -4,7 +4,7 @@ const db = require('../db');
 const { adminAuth, foundationAuth } = require('../middleware/auth');
 
 // @route   GET api/transacciones
-// @desc    Obtener el libro contable unificado
+//Obtener el libro contable unificado
 router.get('/', foundationAuth, async (req, res) => {
     try {
         const query = `
@@ -28,7 +28,7 @@ router.get('/', foundationAuth, async (req, res) => {
         `;
         const result = await db.query(query);
 
-        // Calcular totales para KPIs
+        // Calcular totales
         const transacciones = result.rows;
 
         const pendienteCobro = transacciones
@@ -51,7 +51,7 @@ router.get('/', foundationAuth, async (req, res) => {
                 const ahora = new Date();
                 return fecha.getMonth() === ahora.getMonth()
                     && fecha.getFullYear() === ahora.getFullYear()
-                    && (t.tipo.includes('Gasto') || t.tipo === 'Pago de Servicios');  // ← CORREGIDO
+                    && (t.tipo.includes('Gasto') || t.tipo === 'Pago de Servicios'); 
             })
             .reduce((sum, t) => sum + Math.abs(parseFloat(t.monto)), 0);
 
@@ -71,8 +71,9 @@ router.get('/', foundationAuth, async (req, res) => {
         res.status(500).send('Error en el Servidor');
     }
 });
+
 // @route   POST api/transacciones
-// @desc    Registrar cualquier movimiento manual (ingreso, gasto, pago de familiar)
+//Registrar cualquier movimiento manual 
 router.post('/', adminAuth, async (req, res) => {
     const { tipo, descripcion, monto, id_familiar, id_donante } = req.body;
 
@@ -84,7 +85,6 @@ router.post('/', adminAuth, async (req, res) => {
         // Los gastos siempre se guardan como negativos, el resto como positivos
         const montoFinal = tipo.toLowerCase().includes('gasto') ? -Math.abs(monto) : Math.abs(monto);
 
-        // La consulta ahora es más simple
         const nuevaTransaccion = await db.query(
             `INSERT INTO Movimiento_Financiero (fecha, tipo, descripcion, monto, id_familiar, id_donante)
              VALUES (NOW(), $1, $2, $3, $4, $5) RETURNING *`,
@@ -99,7 +99,7 @@ router.post('/', adminAuth, async (req, res) => {
 
 
 // @route   PUT api/transacciones/:id/descuento
-// @desc    Aplicar o modificar descuento a un movimiento
+// Aplicar o modificar descuento a un movimiento
 router.put('/:id/descuento', foundationAuth, async (req, res) => {
     const { id } = req.params;
     const { descuento_aplicado } = req.body;
@@ -140,7 +140,7 @@ router.put('/:id/descuento', foundationAuth, async (req, res) => {
 });
 
 // @route   PUT api/transacciones/:id/pagar
-// @desc    Marcar un movimiento como pagado
+//Marcar un movimiento como pagado
 router.put('/:id/pagar', adminAuth, async (req, res) => {
     const { id } = req.params;
 
@@ -163,6 +163,5 @@ router.put('/:id/pagar', adminAuth, async (req, res) => {
         res.status(500).send('Error en el Servidor');
     }
 });
-// La ruta POST /pago ya no es necesaria, fue unificada en la ruta POST / de arriba.
 
 module.exports = router;

@@ -4,7 +4,7 @@ const router = express.Router();
 const db = require('../db');
 const { adminAuth, generalViewAuth, labAuth } = require('../middleware/auth');
 
-// @desc    Obtener todos los exámenes asignados a una visita, antes tenia adminAuth ahora generalViewAuth
+//Obtener todos los exámenes asignados a una visita
 router.get('/visitas/:id/examenes', generalViewAuth, async (req, res) => {
     const { id } = req.params;
     try {
@@ -28,7 +28,7 @@ router.get('/visitas/:id/examenes', generalViewAuth, async (req, res) => {
 });
 
 
-// @desc    Asignar un examen a una visita, antes tenia adminAuth ahora generalViewAuth
+//Asignar un examen a una visita
 router.post('/visitas/:id/examenes', generalViewAuth, async (req, res) => {
     const { id: id_visita } = req.params;
     const { id_examen } = req.body;
@@ -45,13 +45,13 @@ router.post('/visitas/:id/examenes', generalViewAuth, async (req, res) => {
 });
 
 // @route   PUT api/examenes_visita/:id_visita/:id_examen
-// @desc    Actualizar el resultado de un examen en una visita
+//Actualizar el resultado de un examen en una visita
 router.put('/:id_visita/:id_examen', labAuth, async (req, res) => {
     const { id_visita, id_examen } = req.params;
     const { resultado } = req.body;
 
     try {
-        // --- 1. ACTUALIZAMOS EL EXAMEN (YA NO GUARDA COSTOS) ---
+        //Actualizamos el resultado del examan
         const updated = await db.query(
             `UPDATE examen_visita 
              SET resultado = $1, fecha_realizacion = NOW(), estado = 'realizado'
@@ -63,7 +63,7 @@ router.put('/:id_visita/:id_examen', labAuth, async (req, res) => {
             return res.status(404).json({ msg: 'No se encontró el examen asignado a esta visita.' });
         }
 
-        // --- 2. OBTENEMOS INFO PARA EL MOVIMIENTO FINANCIERO ---
+        //obtengo datos para el movimiento finnaciero--
         const infoParaCobro = await db.query(
             `SELECT 
                 e.costo, e.nombre_examen, s.id_paciente
@@ -77,7 +77,7 @@ router.put('/:id_visita/:id_examen', labAuth, async (req, res) => {
         
         const { costo, nombre_examen, id_paciente } = infoParaCobro.rows[0];
 
-        // --- 3. CREAMOS EL MOVIMIENTO FINANCIERO ---
+        // creamos el movimiento financiero
         if (costo > 0) {
             const infoFamiliar = await db.query(
                 'SELECT id_familiar FROM paciente_familiar WHERE id_paciente = $1 AND es_contacto_principal = TRUE',
@@ -93,7 +93,7 @@ router.put('/:id_visita/:id_examen', labAuth, async (req, res) => {
             );
         }
 
-        // --- 4. VERIFICAMOS SI TODOS LOS EXÁMENES ESTÁN COMPLETOS ---
+        // Verificamos si quedan examenes pendientes
         const pendientesQuery = `
             SELECT COUNT(*) 
             FROM examen_visita 
@@ -115,8 +115,9 @@ router.put('/:id_visita/:id_examen', labAuth, async (req, res) => {
         res.status(500).send('Error en el Servidor');
     }
 });
+
 // @route   DELETE api/visitas/:id/examenes/:id_examen
-// @desc    Quitar un examen de una visita
+//Quitar un examen de una visita
 router.delete('/visitas/:id/examenes/:id_examen', adminAuth, async (req, res) => {
     const { id: id_visita, id_examen } = req.params;
     try {

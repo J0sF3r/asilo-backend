@@ -5,7 +5,7 @@ const db = require('../db');
 const { adminAuth, generalViewAuth, foundationAuth} = require('../middleware/auth');
 
 // @route   POST api/examenes
-// @desc    Crear un nuevo examen
+//Crear un nuevo examen
 router.post('/', foundationAuth, async (req, res) => {
     const { nombre_examen, descripcion, costo } = req.body;
     if (!nombre_examen || !costo) {
@@ -24,7 +24,7 @@ router.post('/', foundationAuth, async (req, res) => {
 });
 
 // @route   GET api/examenes
-// @desc    Obtener todos los exámenes antes tenia adminAuth ahora generalViewAuth
+// Obtener todos los exámenes 
 router.get('/', generalViewAuth, async (req, res) => {
     try {
         const examenes = await db.query("SELECT * FROM examen ORDER BY nombre_examen ASC");
@@ -36,7 +36,7 @@ router.get('/', generalViewAuth, async (req, res) => {
 });
 
 // @route   PUT api/examenes/:id
-// @desc    Actualizar un examen
+// Actualizar un examen
 router.put('/:id', foundationAuth, async (req, res) => {
     const { id } = req.params;
     const { nombre_examen, descripcion, costo } = req.body;
@@ -59,7 +59,7 @@ router.put('/:id', foundationAuth, async (req, res) => {
 });
 
 // @route   DELETE api/examenes/:id
-// @desc    Eliminar un examen
+//Eliminar un examen
 router.delete('/:id', foundationAuth, async (req, res) => {
     const { id } = req.params;
     try {

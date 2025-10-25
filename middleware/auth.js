@@ -17,7 +17,6 @@ const auth = (req, res, next) => {
 
 const adminAuth = (req, res, next) => {
     auth(req, res, () => {
-        // Usamos el nombre del rol que viene de la base de datos
         if (req.user.nombre_rol === 'Administración') {
             next();
         } else {
@@ -25,10 +24,10 @@ const adminAuth = (req, res, next) => {
         }
     });
 };
+
 // Middleware para roles de Laboratorio
 const labAuth = (req, res, next) => {
     auth(req, res, () => {
-        // Permitimos el acceso si el rol es 'Administración' O 'Laboratorio'
         if (req.user.nombre_rol === 'Administración' || req.user.nombre_rol === 'Laboratorio') {
             next();
         } else {
@@ -66,7 +65,7 @@ const foundationAuth = (req, res, next) => {
         }
     });
 };
-// Middleware para roles que pueden ver solicitudes (Administración, Médico General, Fundación)
+// Middleware para roles que pueden ver solicitudes 
 const solicitudesViewAuth = (req, res, next) => {
     auth(req, res, () => {
         const allowedRoles = ['Administración', 'Medico General', 'Fundación', 'Medico Especialista'];
@@ -80,8 +79,6 @@ const solicitudesViewAuth = (req, res, next) => {
 // Middleware para roles de Médico Especialista
 const medicoAuth = (req, res, next) => {
     auth(req, res, () => {
-
-        // Permitimos el acceso si el rol es 'Administración' O 'Medico Especialista'
         if (req.user.nombre_rol === 'Administración' || req.user.nombre_rol === 'Medico Especialista') {
             next();
         } else {
@@ -97,7 +94,6 @@ const generalViewAuth = (req, res, next) => {
             'Medico General', 
             'Fundación', 
             'Medico Especialista'
-            // Puedes añadir 'Laboratorio', 'Farmacia', etc., si también necesitan ver catálogos
         ];
         if (allowedRoles.includes(req.user.nombre_rol)) {
             next();
@@ -106,7 +102,7 @@ const generalViewAuth = (req, res, next) => {
         }
     });
 };
-
+// Middleware para roles que pueden acceder a diagnósticos
 const diagnosticoAuth = (req, res, next) => {
     auth(req, res, () => {
         const allowedRoles = [
@@ -115,7 +111,7 @@ const diagnosticoAuth = (req, res, next) => {
             'Medico Especialista'
         ];
         if (allowedRoles.includes(req.user.nombre_rol)) {
-            next(); // El usuario tiene uno de los roles permitidos
+            next(); 
         } else {
             res.status(403).json({ msg: 'Acceso denegado. Se requiere rol de Administrador o Médico.' });
         }

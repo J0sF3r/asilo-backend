@@ -2,10 +2,10 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { labAuth } = require('../middleware/auth'); // Permiso para el rol de Laboratorio
+const { labAuth } = require('../middleware/auth'); 
 
 // @route   GET /api/laboratorio/pendientes
-// @desc    Obtener todos los exámenes con resultado pendiente
+//Obtener todos los exámenes con resultado pendiente
 router.get('/pendientes', labAuth, async (req, res) => {
     try {
         const query = `
@@ -15,21 +15,15 @@ router.get('/pendientes', labAuth, async (req, res) => {
                 s.fecha_solicitud,
                 p.nombre AS nombre_paciente,
                 e.nombre_examen,
-                s.diagnostico_general AS diagnostico_preliminar, -- Diagnóstico del médico general
-                vm.observaciones_medicas, -- Observaciones del especialista
-                med_solicitante.nombre AS medico_solicitante -- Nombre del especialista que ordenó el examen
+                s.diagnostico_general AS diagnostico_preliminar,
+                vm.observaciones_medicas,
+                med_solicitante.nombre AS medico_solicitante 
             FROM examen_visita ev
-            -- Unir con examen para obtener el nombre del examen
             JOIN examen e ON ev.id_examen = e.id_examen
-            -- Unir con visita_medica para obtener la solicitud y observaciones
             JOIN visita_medica vm ON ev.id_visita = vm.id_visita
-            -- Unir con solicitud para obtener la fecha y el paciente
             JOIN solicitud s ON vm.id_solicitud = s.id_solicitud
-            -- Unir con paciente para obtener su nombre
             JOIN paciente p ON s.id_paciente = p.id_paciente
-            -- Unir con medico para obtener el nombre del especialista que solicitó el examen
             LEFT JOIN medico med_solicitante ON s.id_medico_especialista = med_solicitante.id_medico
-            -- La condición clave: solo los que no tienen resultado
             WHERE ev.resultado IS NULL OR ev.resultado = ''
             ORDER BY s.fecha_solicitud ASC;
         `;
@@ -42,7 +36,7 @@ router.get('/pendientes', labAuth, async (req, res) => {
 });
 
 // @route   PUT /api/laboratorio/resultado
-// @desc    Registrar el resultado de un examen
+//Registrar el resultado de un examen
 router.put('/resultado', labAuth, async (req, res) => {
     const { id_visita, id_examen, resultado, fecha_realizacion } = req.body;
 

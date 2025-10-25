@@ -2,8 +2,9 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { adminAuth, medicoAuth, diagnosticoAuth, generalAuth } = require('../middleware/auth'); // Usaremos adminAuth para proteger las rutas
+const { adminAuth, medicoAuth, diagnosticoAuth, generalAuth } = require('../middleware/auth'); 
 
+// @route   POST api/pacientes
 // @desc    Registrar un nuevo paciente
 router.post('/', adminAuth, async (req, res) => {
     const { nombre, fecha_nacimiento, sexo, direccion, telefono, email, fecha_ingreso } = req.body;
@@ -44,6 +45,7 @@ router.post('/:id/familiares', generalAuth, async (req, res) => {
     }
 });
 
+// route 
 // @desc    Obtener todos los pacientes
 router.get('/', generalAuth, async (req, res) => {
     try {
@@ -100,7 +102,8 @@ router.get('/:id/familiares', generalAuth, async (req, res) => {
     }
 });
 
-// Get historial de solicitudes de un paciente
+// route 
+//historial de solicitudes de un paciente
 router.get('/:id/solicitudes', generalAuth, async (req, res) => {
     const { id } = req.params;
     try {
@@ -172,12 +175,12 @@ router.delete('/:id_paciente/familiares/:id_familiar', adminAuth, async (req, re
     }
 });
 
-// @desc    Obtener el historial médico completo de un paciente
+//Obtener el historial médico completo de un paciente
 router.get('/:id/historial', medicoAuth, async (req, res) => {
     const { id: id_paciente } = req.params;
 
     try {
-        // --- 1. OBTENER HISTORIAL DE VISITAS ---
+        // Obtener todas las visitas médicas del paciente
         const visitasQuery = `
             SELECT 
                 vm.id_visita, 
@@ -229,7 +232,7 @@ router.get('/:id/historial', medicoAuth, async (req, res) => {
     }
 });
 
-// @desc    Actualizar un paciente existente
+// Actualizar un paciente existente
 router.put('/:id', adminAuth, async (req, res) => {
     const { id } = req.params;
     const { nombre, fecha_nacimiento, sexo, direccion, telefono, email } = req.body;
@@ -253,7 +256,7 @@ router.put('/:id', adminAuth, async (req, res) => {
     }
 });
 
-// @route   DELETE api/pacientes/:id
+// Desactivar un paciente 
 router.delete('/:id', adminAuth, async (req, res) => {
     const { id } = req.params;
     try {
@@ -266,14 +269,14 @@ router.delete('/:id', adminAuth, async (req, res) => {
             return res.status(404).json({ msg: 'Paciente no encontrado' });
         }
 
-        res.json({ msg: 'Paciente desactivado exitosamente' }); // Mensaje actualizado
+        res.json({ msg: 'Residente desactivado exitosamente' }); 
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Error en el Servidor');
     }
 });
 
-// @desc    Obtener todas las condiciones de base de un paciente
+// Obtener todas las condiciones de base de un paciente
 router.get('/:id/condiciones', generalAuth, async (req, res) => {
     const { id } = req.params;
     try {
@@ -299,7 +302,7 @@ router.get('/:id/condiciones', generalAuth, async (req, res) => {
 });
 
 
-// @desc    Añadir una nueva condición de base a un paciente
+// Añadir una nueva condición de base a un paciente
 router.post('/:id/condiciones', diagnosticoAuth, async (req, res) => {
     const { id: id_paciente } = req.params;
     const { nombre_condicion, fecha_diagnostico, observaciones } = req.body;
@@ -317,7 +320,7 @@ router.post('/:id/condiciones', diagnosticoAuth, async (req, res) => {
     }
 });
 
-// @desc    Designar a un familiar como el contacto principal
+// Designar a un familiar como el contacto principal
 router.put('/:id/familiares/:id_familiar/principal', adminAuth, async (req, res) => {
     const { id: id_paciente, id_familiar } = req.params;
 

@@ -4,7 +4,7 @@ const db = require('../db');
 const { adminAuth, solicitudesViewAuth, foundationAuth } = require('../middleware/auth');
 
 // @route   POST api/medicos
-// @desc    Registrar un nuevo médico
+//Registrar un nuevo médico
 router.post('/', foundationAuth, async (req, res) => {
     const { nombre, tipo, especialidad, email, telefono, costo_consulta } = req.body;
     try {
@@ -21,7 +21,7 @@ router.post('/', foundationAuth, async (req, res) => {
 });
 
 // @route   GET api/medicos
-// @desc    Obtener todos los médicos ACTIVOS
+//Obtener todos los médicos ACTIVOS
 router.get('/', solicitudesViewAuth, async (req, res) => {
     try {
         const medicos = await db.query("SELECT * FROM Medico WHERE activo = TRUE ORDER BY nombre ASC");
@@ -33,7 +33,7 @@ router.get('/', solicitudesViewAuth, async (req, res) => {
 });
 
 // @route   GET api/medicos/generales
-// @desc    Obtener todos los médicos generales ACTIVOS
+// Obtener todos los médicos generales ACTIVOS
 router.get('/generales', adminAuth, async (req, res) => {
     try {
         const medicosGenerales = await db.query(
@@ -47,7 +47,7 @@ router.get('/generales', adminAuth, async (req, res) => {
 });
 
 // @route   GET api/medicos/especialistas
-// @desc    Obtener todos los médicos especialistas ACTIVOS
+//Obtener todos los médicos especialistas ACTIVOS
 router.get('/especialistas', adminAuth, async (req, res) => {
     try {
         const especialistas = await db.query(
@@ -62,8 +62,8 @@ router.get('/especialistas', adminAuth, async (req, res) => {
 
 
 // @route   PUT /api/medicos/:id
-// @desc    Actualizar un médico
-router.put('/:id', adminAuth, async (req, res) => { // Simplificado a solo adminAuth, puedes ajustarlo
+//Actualizar un médico
+router.put('/:id', adminAuth, async (req, res) => { 
     const { id } = req.params;
     const { nombre, especialidad, email, telefono, tipo, costo_consulta } = req.body;
     try {
@@ -82,8 +82,8 @@ router.put('/:id', adminAuth, async (req, res) => { // Simplificado a solo admin
     }
 });
 
+// @route   GET /api/medicos/:id
 // @desc    Obtener los datos de un médico específico
-// --- NUEVA RUTA ---
 router.get('/:id', adminAuth, async (req, res) => {
     const { id } = req.params;
     try {
@@ -104,8 +104,8 @@ router.get('/:id', adminAuth, async (req, res) => {
 });
 
 // @route   DELETE /api/medicos/:id
-// @desc    Desactivar un médico (Borrado Lógico)
-router.delete('/:id', adminAuth, async (req, res) => { // Simplificado a solo adminAuth
+//Desactivar un médico (Borrado Lógico)
+router.delete('/:id', adminAuth, async (req, res) => { 
     const { id } = req.params;
     try {
         const deactivatedMedico = await db.query(

@@ -4,7 +4,7 @@ const db = require('../db');
 const { adminAuth } = require('../middleware/auth');
 
 // @route   GET api/donantes
-// @desc    Obtener todos los donantes
+// Obtener todos los donantes
 router.get('/', adminAuth, async (req, res) => {
     try {
         const query = `
@@ -31,7 +31,7 @@ router.get('/', adminAuth, async (req, res) => {
 });
 
 // @route   POST api/donantes
-// @desc    Crear nuevo donante
+// Crear nuevo donante
 router.post('/', adminAuth, async (req, res) => {
     const { nombre, tipo, contacto, email, telefono, pais, notas } = req.body;
 
@@ -54,7 +54,7 @@ router.post('/', adminAuth, async (req, res) => {
 });
 
 // @route   PUT api/donantes/:id
-// @desc    Actualizar donante
+// Actualizar donante
 router.put('/:id', adminAuth, async (req, res) => {
     const { id } = req.params;
     const { nombre, tipo, contacto, email, telefono, pais, notas } = req.body;
@@ -80,7 +80,7 @@ router.put('/:id', adminAuth, async (req, res) => {
 });
 
 // @route   PUT api/donantes/:id/desactivar
-// @desc    Desactivar donante
+//Desactivar donante
 router.put('/:id/desactivar', adminAuth, async (req, res) => {
     const { id } = req.params;
 
@@ -105,7 +105,7 @@ router.put('/:id/desactivar', adminAuth, async (req, res) => {
 });
 
 // @route   PUT api/donantes/:id/activar
-// @desc    Activar donante
+//Activar donante
 router.put('/:id/activar', adminAuth, async (req, res) => {
     const { id } = req.params;
 
@@ -130,7 +130,7 @@ router.put('/:id/activar', adminAuth, async (req, res) => {
 });
 
 // @route   POST api/donantes/:id/donar
-// @desc    Registrar una donación de un donante
+// Registrar una donación de un donante
 router.post('/:id/donar', adminAuth, async (req, res) => {
     const { id: id_donante } = req.params;
     const { monto, descripcion } = req.body;
@@ -140,7 +140,7 @@ router.post('/:id/donar', adminAuth, async (req, res) => {
     }
 
     try {
-        // Verificar que el donante existe
+        // Verifica que el donante existe
         const donante = await db.query(
             'SELECT nombre FROM donantes WHERE id_donante = $1',
             [id_donante]
@@ -153,7 +153,7 @@ router.post('/:id/donar', adminAuth, async (req, res) => {
         const nombreDonante = donante.rows[0].nombre;
         const descripcionFinal = descripcion || `Donación de ${nombreDonante}`;
 
-        // Crear movimiento financiero
+        // Crea movimiento financiero
         const movimiento = await db.query(
             `INSERT INTO Movimiento_Financiero 
                 (fecha, tipo, descripcion, monto, id_donante, estado_pago)

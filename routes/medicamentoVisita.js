@@ -1,11 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-// Importamos medicoAuth ya que prescribir es una acción médica
 const { adminAuth, generalViewAuth, medicoAuth } = require('../middleware/auth');
 
 // @route   GET api/visitas/:id/medicamentos
-// @desc    Obtener todos los medicamentos asignados a una visita
+//Obtener todos los medicamentos asignados a una visita
 router.get('/visitas/:id/medicamentos', generalViewAuth, async (req, res) => {
     const { id } = req.params;
     try {
@@ -24,8 +23,7 @@ router.get('/visitas/:id/medicamentos', generalViewAuth, async (req, res) => {
 });
 
 // @route   POST api/visitas/:id/medicamentos
-// @desc    Asignar un medicamento a una visita y generar el cobro
-// --- ESTA ES LA RUTA MODIFICADA ---
+//Asignar un medicamento a una visita y generar el cobro
 router.post('/visitas/:id/medicamentos', medicoAuth, async (req, res) => {
     const { id: id_visita } = req.params;
     const { id_medicamento, cantidad, tiempo_aplicacion } = req.body;
@@ -50,12 +48,12 @@ router.post('/visitas/:id/medicamentos', medicoAuth, async (req, res) => {
         res.status(500).send('Error en el Servidor');
     }
 });
+
 // @route   DELETE api/visitas/:id/medicamentos/:id_medicamento
-// @desc    Quitar un medicamento de una visita
+//Quitar un medicamento de una visita
 router.delete('/visitas/:id/medicamentos/:id_medicamento', medicoAuth, async (req, res) => {
     const { id: id_visita, id_medicamento } = req.params;
     try {
-        // También sería bueno verificar que el medicamento no haya sido ya entregado antes de borrar
         const result = await db.query(
             "DELETE FROM medicamento_visita WHERE id_visita = $1 AND id_medicamento = $2 AND estado = 'pendiente' RETURNING *",
             [id_visita, id_medicamento]

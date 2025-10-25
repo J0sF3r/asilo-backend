@@ -1,11 +1,11 @@
 // En: backend/routes/tratamientos.js
-
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { diagnosticoAuth } = require('../middleware/auth'); // Usamos el mismo middleware
+const { diagnosticoAuth } = require('../middleware/auth');
 
-// @desc    Añadir un nuevo tratamiento fijo a una condición
+// @route   POST api/tratamientos/condicion/:id
+//Añadir un nuevo tratamiento fijo a una condición
 router.post('/condicion/:id', diagnosticoAuth, async (req, res) => {
     const { id: id_condicion } = req.params;
     const { id_medicamento, nombre_medicamento, dosis, frecuencia, intervalo_dias } = req.body;
@@ -38,7 +38,8 @@ router.post('/condicion/:id', diagnosticoAuth, async (req, res) => {
     }
 });
 
-// @desc    Actualizar un tratamiento fijo existente
+// @route   PUT api/tratamientos/:id
+//Actualizar un tratamiento fijo existente
 router.put('/:id', diagnosticoAuth, async (req, res) => {
     const { id: id_tratamiento } = req.params;
     const { nombre_medicamento, dosis, frecuencia, fecha_inicio } = req.body;
@@ -64,8 +65,7 @@ router.put('/:id', diagnosticoAuth, async (req, res) => {
 
 
 // @route   DELETE api/tratamientos/:id
-// @desc    Eliminar un tratamiento fijo
-// @access  Private (Admin/Medicos)
+//Eliminar un tratamiento fijo
 router.delete('/:id', diagnosticoAuth, async (req, res) => {
     const { id: id_tratamiento } = req.params;
 

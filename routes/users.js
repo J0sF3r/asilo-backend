@@ -34,16 +34,11 @@ router.get('/', adminAuth, async (req, res) => {
     }
 });
 
-// En backend/routes/users.js
-
 // @route   PUT /api/users/:id
-// @desc    Actualizar un usuario existente
+//Actualizar un usuario existente
 router.put('/:id', adminAuth, async (req, res) => {
     const { id } = req.params;
     const { username, nombre_completo, email, id_rol, id_medico, id_enfermero, id_familiar, estado } = req.body;
-
-    // Nota: La actualización de contraseña se manejaría por separado por seguridad,
-    // pero por ahora actualizaremos los datos del perfil.
 
     try {
         const updateUserQuery = `
@@ -78,11 +73,11 @@ router.put('/:id', adminAuth, async (req, res) => {
     }
 });
 
-// @desc    Eliminar (desactivar) un usuario
+// @route   DELETE /api/users/:id
+// Eliminar (desactivar) un usuario
 router.delete('/:id', adminAuth, async (req, res) => {
     const { id } = req.params;
     try {
-        // Hacemos un "soft delete" actualizando el estado
         const result = await db.query(
             "UPDATE usuario SET estado = 'inactivo' WHERE id_usuario = $1 RETURNING id_usuario", 
             [id]
@@ -100,11 +95,11 @@ router.delete('/:id', adminAuth, async (req, res) => {
     }
 });
 
-// @desc    Obtener los datos completos de un usuario específico para editar
+// @route   GET /api/users/:id
+//Obtener los datos completos de un usuario específico para editar
 router.get('/:id', adminAuth, async (req, res) => {
     const { id } = req.params;
     try {
-        // Esta consulta selecciona todos los campos necesarios para el formulario
         const user = await db.query("SELECT * FROM usuario WHERE id_usuario = $1", [id]);
 
         if (user.rows.length === 0) {

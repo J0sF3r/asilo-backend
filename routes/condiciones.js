@@ -6,8 +6,7 @@ const db = require('../db');
 const { diagnosticoAuth } = require('../middleware/auth');
 
 // @route   PUT api/condiciones/:id
-// @desc    Actualizar una condición de base
-// @access  Private (Admin/Medicos)
+//Actualizar una condición de base
 router.put('/:id', diagnosticoAuth, async (req, res) => {
     const { id: id_condicion } = req.params;
     const { nombre_condicion, fecha_diagnostico, observaciones } = req.body;
@@ -32,14 +31,12 @@ router.put('/:id', diagnosticoAuth, async (req, res) => {
 });
 
 // @route   DELETE api/condiciones/:id
-// @desc    Eliminar una condición de base y sus tratamientos fijos asociados
-// @access  Private (Admin/Medicos)
+// Eliminar una condición de base y sus tratamientos fijos asociados
 router.delete('/:id', diagnosticoAuth, async (req, res) => {
     const { id: id_condicion } = req.params;
 
     try {
-        // La opción "ON DELETE CASCADE" en la base de datos se encarga de
-        // borrar automáticamente los tratamientos fijos asociados a esta condición.
+        // borra automáticamente los tratamientos fijos
         const condicionEliminada = await db.query(
             'DELETE FROM Condicion_Base WHERE id_condicion = $1 RETURNING *',
             [id_condicion]

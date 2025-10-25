@@ -3,7 +3,8 @@ const router = express.Router();
 const db = require('../db');
 const { foundationAuth } = require('../middleware/auth');
 
-// @desc    Reporte de cobros por familiar
+
+// Reporte de cobros por familiar
 router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
     const { id_familiar } = req.params;
     let { fechaInicio, fechaFin } = req.query;
@@ -13,7 +14,6 @@ router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
     }
 
     try {
-        // ✅ SOLUCIÓN DEFINITIVA: Convertir fechas a timestamp con zona horaria de Guatemala
         const query = `
             SELECT 
                 mf.fecha,
@@ -69,7 +69,7 @@ router.get('/cobros/:id_familiar', foundationAuth, async (req, res) => {
     }
 });
 
-// @desc    Reporte de pagos a la fundación (cargos ya pagados)
+// Reporte de pagos a la fundación (cargos ya pagados)
 router.get('/pagos-fundacion', foundationAuth, async (req, res) => {
     const { fechaInicio, fechaFin } = req.query;
 
@@ -78,7 +78,6 @@ router.get('/pagos-fundacion', foundationAuth, async (req, res) => {
     }
 
     try {
-        // ✅ CORREGIDO: Buscar cargos con estado_pago = 'Pagado'
         const query = `
             SELECT 
                 mf.fecha,
@@ -115,7 +114,7 @@ router.get('/pagos-fundacion', foundationAuth, async (req, res) => {
     }
 });
 
-// @desc    Reporte de entradas (donaciones y cobros)
+// Reporte de entradas (donaciones y cobros)
 router.get('/entradas', foundationAuth, async (req, res) => {
     const { fechaInicio, fechaFin } = req.query;
 
@@ -179,7 +178,7 @@ router.get('/entradas', foundationAuth, async (req, res) => {
     }
 });
 
-// @desc    Reporte de exámenes médicos por paciente
+// Reporte de exámenes médicos por paciente
 router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
     const { id_paciente } = req.params;
     const { fechaInicio, fechaFin } = req.query;
@@ -241,7 +240,7 @@ router.get('/examenes/:id_paciente', foundationAuth, async (req, res) => {
     }
 });
 
-// @desc    Reporte de medicamentos aplicados por paciente
+//Reporte de medicamentos aplicados por paciente
 router.get('/medicamentos/:id_paciente', foundationAuth, async (req, res) => {
     const { id_paciente } = req.params;
     const { fechaInicio, fechaFin } = req.query;
@@ -265,7 +264,6 @@ router.get('/medicamentos/:id_paciente', foundationAuth, async (req, res) => {
 
         const paciente = pacienteRes.rows[0];
 
-        // ✅ CORREGIDO: Usar medicamento_visita con sus columnas reales
         const medicamentosQuery = `
             SELECT 
                 mv.fecha_entrega,
@@ -301,7 +299,7 @@ router.get('/medicamentos/:id_paciente', foundationAuth, async (req, res) => {
     }
 });
 
-// @desc    Reporte de costos por visita del paciente
+//Reporte de costos por visita del paciente
 router.get('/costos-visitas/:id_paciente', foundationAuth, async (req, res) => {
     const { id_paciente } = req.params;
     const { fechaInicio, fechaFin } = req.query;
@@ -311,7 +309,6 @@ router.get('/costos-visitas/:id_paciente', foundationAuth, async (req, res) => {
     }
 
     try {
-        // Obtener información del paciente y su familiar contacto principal
         const pacienteQuery = `
             SELECT 
                 p.nombre, 
@@ -323,7 +320,7 @@ router.get('/costos-visitas/:id_paciente', foundationAuth, async (req, res) => {
             LIMIT 1
         `;
         const pacienteRes = await db.query(pacienteQuery, [id_paciente]);
-        
+
         if (pacienteRes.rows.length === 0) {
             return res.status(404).json({ msg: 'Paciente no encontrado' });
         }
@@ -351,15 +348,15 @@ router.get('/costos-visitas/:id_paciente', foundationAuth, async (req, res) => {
               AND vm.fecha_visita::date <= $3::date
             ORDER BY vm.fecha_visita DESC
         `;
-        
+
         const visitasRes = await db.query(visitasQuery, [id_paciente, fechaInicio, fechaFin]);
         const visitas = visitasRes.rows;
 
         // Para cada visita, obtener los costos desde Movimiento_Financiero
         for (let visita of visitas) {
             const fechaVisita = visita.fecha_visita;
-            
-            // 1. Costo de CONSULTA (buscar UN cargo consulta cercano a la hora de la visita)
+
+            // Costo de CONSULTA 
             const consultaQuery = `
                 SELECT mf.monto, mf.descripcion
                 FROM Movimiento_Financiero mf
@@ -373,30 +370,30 @@ router.get('/costos-visitas/:id_paciente', foundationAuth, async (req, res) => {
             visita.costo_consulta = consultaRes.rows.length > 0 ? parseFloat(consultaRes.rows[0].monto || 0) : 0;
             visita.desc_consulta = consultaRes.rows.length > 0 ? consultaRes.rows[0].descripcion : 'Sin consulta registrada';
 
-            // 2. Costos de EXÁMENES (solo los exámenes de ESTA visita)
-const examenesQuery = `
-    SELECT DISTINCT
-        e.nombre_examen,
-        ev.resultado,
-        mf.monto AS costo
-    FROM examen_visita ev
-    INNER JOIN examen e ON ev.id_examen = e.id_examen
-    LEFT JOIN Movimiento_Financiero mf ON 
-        mf.id_familiar = $1
-        AND mf.tipo = 'Cargo Examen'
-        AND mf.descripcion ILIKE '%' || e.nombre_examen || '%'
-        AND DATE(mf.fecha) = DATE($2::timestamp)
-    WHERE ev.id_visita = $3
+            // 2. Costos de EXÁMENES (solo los exámenes de esta visita)
+            const examenesQuery = `
+                    SELECT DISTINCT
+                        e.nombre_examen,
+                        ev.resultado,
+                        mf.monto AS costo
+                    FROM examen_visita ev
+                    INNER JOIN examen e ON ev.id_examen = e.id_examen
+                    LEFT JOIN Movimiento_Financiero mf ON 
+                        mf.id_familiar = $1
+                        AND mf.tipo = 'Cargo Examen'
+                        AND mf.descripcion ILIKE '%' || e.nombre_examen || '%'
+                        AND DATE(mf.fecha) = DATE($2::timestamp)
+                    WHERE ev.id_visita = $3
 `;
-const examenesRes = await db.query(examenesQuery, [paciente.id_familiar, fechaVisita, visita.id_visita]);
-visita.examenes = examenesRes.rows.map(ex => ({
-    nombre_examen: ex.nombre_examen,
-    costo: parseFloat(ex.costo || 0),
-    resultado: ex.resultado || 'Pendiente'
-}));
-visita.total_examenes = visita.examenes.reduce((sum, ex) => sum + ex.costo, 0);
+            const examenesRes = await db.query(examenesQuery, [paciente.id_familiar, fechaVisita, visita.id_visita]);
+            visita.examenes = examenesRes.rows.map(ex => ({
+                nombre_examen: ex.nombre_examen,
+                costo: parseFloat(ex.costo || 0),
+                resultado: ex.resultado || 'Pendiente'
+            }));
+            visita.total_examenes = visita.examenes.reduce((sum, ex) => sum + ex.costo, 0);
 
-            // 3. Costos de MEDICAMENTOS (solo los medicamentos de ESTA visita)
+            //Costos de MEDICAMENTOS
             const medicamentosQuery = `
                 SELECT DISTINCT
                     m.nombre AS nombre_medicamento,

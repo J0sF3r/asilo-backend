@@ -4,7 +4,7 @@ const db = require('../db');
 const { farmaciaAuth } = require('../middleware/auth');
 
 // @route   GET api/farmacia/pendientes-visita
-// @desc    Obtener medicamentos pendientes de VISITAS PUNTUALES
+//Obtener medicamentos pendientes de VISITAS PUNTUALES
 router.get('/pendientes-visita', farmaciaAuth, async (req, res) => {
     try {
         const pendientes = await db.query(
@@ -29,12 +29,11 @@ router.get('/pendientes-visita', farmaciaAuth, async (req, res) => {
 });
 
 // @route   PUT api/farmacia/entregar-visita
-// @desc    Entregar un medicamento de una VISITA PUNTUAL y registrar el costo
-// En: backend/routes/farmacia.js
+//Entregar un medicamento de una VISITA PUNTUAL y registrar el costo
 router.put('/entregar-visita', farmaciaAuth, async (req, res) => {
     const { id_visita, id_medicamento } = req.body;
     try {
-        // --- 1. SE MARCA EL MEDICAMENTO COMO ENTREGADO ---
+        // update estado medicamento-
         const updateResult = await db.query(
             `UPDATE medicamento_visita 
              SET estado = 'entregado', fecha_entrega = NOW()
@@ -47,8 +46,6 @@ router.put('/entregar-visita', farmaciaAuth, async (req, res) => {
             return res.status(404).json({ msg: 'Este medicamento no está pendiente o ya fue entregado.' });
         }
 
-        // --- 2. LÓGICA DE COBRO (AQUÍ SE USA TU SELECT) ---
-        // Se busca la información necesaria para crear el movimiento financiero
         const infoParaCobro = await db.query(
             `SELECT 
                 m.nombre AS nombre_medicamento, 
@@ -73,7 +70,7 @@ router.put('/entregar-visita', farmaciaAuth, async (req, res) => {
             );
             const id_familiar = infoFamiliar.rows[0]?.id_familiar;
 
-            // --- 3. SE CREA EL REGISTRO EN LA TABLA MAESTRA ---
+            // crear movimiento financiero
             await db.query(
                `INSERT INTO Movimiento_Financiero 
                (fecha, tipo, descripcion, monto, id_visita, id_familiar, estado_pago, monto_original, descuento_aplicado)
@@ -88,8 +85,9 @@ router.put('/entregar-visita', farmaciaAuth, async (req, res) => {
         res.status(500).json({ msg: "Error en el servidor al procesar la entrega." });
     }
 });
+
 // @route   GET api/farmacia/pendientes-fijos
-// @desc    Obtener la lista de TRATAMIENTOS FIJOS pendientes de dispensar
+// Obtener la lista de tratamientos pendientes de dispensar
 router.get('/pendientes-fijos', farmaciaAuth, async (req, res) => {
     try {
         const pendientesFijos = await db.query(
